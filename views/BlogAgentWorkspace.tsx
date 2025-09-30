@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Tone, BlogAgentRequest, BlogAgentResponse } from '../types';
-import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon } from '../components/IconComponents';
+import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/IconComponents';
 import BlogOutputDisplay from '../components/BlogOutputDisplay';
 
 const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -14,10 +14,13 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     feedback: '',
   });
   const [isCustomTone, setIsCustomTone] = useState(false);
-  const [blogOutput, setBlogOutput] = useState<BlogAgentResponse | null>(null);
+  
+  const [generationHistory, setGenerationHistory] = useState<BlogAgentResponse[]>([]);
+  const [currentGenerationIndex, setCurrentGenerationIndex] = useState(0);
+  const [showForm, setShowForm] = useState(true);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isFirstGeneration, setIsFirstGeneration] = useState(true);
 
   // Generate initial session ID on component mount
   useEffect(() => {
@@ -63,18 +66,20 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       }
 
       const data: BlogAgentResponse = await response.json();
-      setBlogOutput(data);
-      setIsFirstGeneration(false);
+      const newHistory = [...generationHistory, data];
+      setGenerationHistory(newHistory);
+      setCurrentGenerationIndex(newHistory.length - 1);
+      setShowForm(false);
     } catch (err) {
       setError('Failed to generate blog. Please try again.');
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [formData, sessionId]);
+  }, [formData, sessionId, generationHistory]);
   
   const handleRegenerate = () => {
-    setBlogOutput(null);
+    setShowForm(true);
     window.scrollTo(0, 0);
   }
 
@@ -88,12 +93,27 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         include_seo: true,
         feedback: '',
     });
-    setBlogOutput(null);
+    setGenerationHistory([]);
+    setCurrentGenerationIndex(0);
     setError(null);
-    setIsFirstGeneration(true);
+    setShowForm(true);
     setIsCustomTone(false);
     window.scrollTo(0, 0);
   };
+
+  const handlePrevGeneration = () => {
+    if (currentGenerationIndex > 0) {
+        setCurrentGenerationIndex(currentGenerationIndex - 1);
+    }
+  };
+
+  const handleNextGeneration = () => {
+      if (currentGenerationIndex < generationHistory.length - 1) {
+          setCurrentGenerationIndex(currentGenerationIndex + 1);
+      }
+  };
+
+  const currentGeneration = generationHistory[currentGenerationIndex];
 
   return (
     <div className="min-h-screen w-full max-w-5xl mx-auto p-4 md:p-8">
@@ -108,9 +128,37 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </button>
       </div>
 
-      {blogOutput ? (
+      {!showForm && currentGeneration ? (
         <>
-            <BlogOutputDisplay blogData={blogOutput.blog_content} traceId={blogOutput.traceId} generatedAt={blogOutput.generated_at} />
+            {generationHistory.length > 1 && (
+              <div className="flex justify-center items-center gap-6 mb-8 animate-fade-in">
+                <button 
+                  onClick={handlePrevGeneration} 
+                  disabled={currentGenerationIndex === 0} 
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Previous Generation"
+                >
+                  <ChevronLeftIcon className="w-6 h-6" />
+                </button>
+                <span className="text-gray-300 font-semibold tracking-wider">
+                  Generation {currentGenerationIndex + 1} of {generationHistory.length}
+                </span>
+                <button 
+                  onClick={handleNextGeneration} 
+                  disabled={currentGenerationIndex === generationHistory.length - 1} 
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Next Generation"
+                >
+                  <ChevronRightIcon className="w-6 h-6" />
+                </button>
+              </div>
+            )}
+            <BlogOutputDisplay 
+                key={currentGeneration.traceId}
+                blogData={currentGeneration.blog_content} 
+                traceId={currentGeneration.traceId} 
+                generatedAt={currentGeneration.generated_at} 
+            />
              <button
                 onClick={handleRegenerate}
                 className="fixed bottom-8 right-8 z-50 flex items-center gap-3 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-full shadow-lg shadow-blue-500/30 transform hover:scale-105 transition-all duration-300"
@@ -220,7 +268,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
             
              {/* Feedback - Only show after the first generation */}
-             {!isFirstGeneration && (
+             {generationHistory.length > 0 && (
                 <div className="relative animate-fade-in">
                     <textarea
                         name="feedback"
@@ -252,7 +300,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 ) : (
                   <>
                     <SparklesIcon className="w-6 h-6" />
-                    <span>{isFirstGeneration ? 'Generate Blog' : 'Regenerate Blog'}</span>
+                    <span>{generationHistory.length === 0 ? 'Generate Blog' : 'Regenerate Blog'}</span>
                   </>
                 )}
               </button>
