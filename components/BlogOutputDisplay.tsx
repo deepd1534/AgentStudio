@@ -11,51 +11,112 @@ interface BlogOutputDisplayProps {
   generatedAt: string;
 }
 
-// A simple component to render basic markdown (bold, lists)
+// A component to render markdown (bold, lists, links, tables)
 const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
-    // Helper to render bold text
-    const renderBold = (line: string) => {
-      const parts = line.split('**');
-      return (
-        <>
-          {parts.map((part, index) =>
-            index % 2 === 1 ? <strong key={index} className="text-white font-semibold">{part}</strong> : <>{part}</>
-          )}
-        </>
+  // Helper to render inline markdown like bold and links
+  const renderInline = (line: string): React.ReactNode => {
+    // Regex to capture **bold** text and [links](url)
+    const regex = /(\*\*.*?\*\*)|(\[.*?\]\(.*?\))/g;
+    const parts = line.split(regex).filter(Boolean);
+
+    return (
+      <>
+        {parts.map((part, index) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={index} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
+          }
+          const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+          if (linkMatch) {
+            return <a href={linkMatch[2]} key={index} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{linkMatch[1]}</a>;
+          }
+          return <React.Fragment key={index}>{part}</React.Fragment>;
+        })}
+      </>
+    );
+  };
+
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let listItems: string[] = [];
+  let tableHeader: string[] | null = null;
+  let tableBody: string[][] = [];
+  
+  const flushList = () => {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul key={`ul-${elements.length}`} className="list-disc list-inside space-y-2 my-4 pl-4">
+          {listItems.map((item, index) => <li key={index}>{renderInline(item)}</li>)}
+        </ul>
       );
-    };
-  
-    const lines = text.split('\n');
-    const elements: React.ReactNode[] = [];
-    let listItems: React.ReactNode[] = [];
-  
-    const flushList = () => {
-      if (listItems.length > 0) {
-        elements.push(
-          <ul key={`ul-${elements.length}`} className="list-disc list-inside space-y-2 my-4 pl-4">
-            {listItems}
-          </ul>
-        );
-        listItems = [];
+      listItems = [];
+    }
+  };
+
+  const flushTable = () => {
+    if (tableHeader) {
+       elements.push(
+        <div key={`table-wrapper-${elements.length}`} className="my-6 overflow-x-auto border border-white/10 rounded-lg">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-white/20">
+                {tableHeader.map((cell, i) => (
+                  <th key={i} className="p-4 font-semibold text-blue-300">{renderInline(cell.trim())}</th>
+                ))}
+              </tr>
+            </thead>
+            {tableBody.length > 0 && (
+                <tbody>
+                {tableBody.map((row, i) => (
+                    <tr key={i} className="border-b border-white/10 last:border-b-0">
+                    {row.map((cell, j) => (
+                        <td key={j} className="p-4">{renderInline(cell.trim())}</td>
+                    ))}
+                    </tr>
+                ))}
+                </tbody>
+            )}
+          </table>
+        </div>
+      );
+    }
+    tableHeader = null;
+    tableBody = [];
+  };
+
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    
+    // Table rows
+    if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
+      flushList();
+      const cells = trimmedLine.slice(1, -1).split('|');
+      
+      // Separator line
+      if (cells.every(cell => /^\s*:?-{3,}:?\s*$/.test(cell))) {
+        return;
       }
-    };
-  
-    lines.forEach((line, index) => {
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith('* ')) {
-        const content = trimmedLine.substring(2);
-        listItems.push(<li key={index}>{renderBold(content)}</li>);
+
+      if (!tableHeader) {
+        tableHeader = cells;
       } else {
-        flushList();
-        if (trimmedLine) {
-            elements.push(<p key={index} className="mb-4">{renderBold(trimmedLine)}</p>);
-        }
+        tableBody.push(cells);
       }
-    });
+    } else if (trimmedLine.startsWith('* ')) { // List items
+      flushTable();
+      listItems.push(trimmedLine.substring(2));
+    } else { // Paragraphs
+      flushList();
+      flushTable();
+      if (trimmedLine) {
+        elements.push(<p key={index} className="mb-4">{renderInline(trimmedLine)}</p>);
+      }
+    }
+  });
   
-    flushList(); // Add any remaining list items at the end
-  
-    return <div className="text-gray-300 leading-relaxed">{elements}</div>;
+  flushList();
+  flushTable();
+
+  return <div className="text-gray-300 leading-relaxed">{elements}</div>;
 };
 
 

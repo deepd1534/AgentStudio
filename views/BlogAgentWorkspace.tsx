@@ -194,7 +194,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 onChange={handleChange}
                 placeholder=" "
                 readOnly={generationHistory.length > 0}
-                className={`block px-4 pb-4 pt-6 w-full text-lg text-white rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors ${generationHistory.length > 0 ? 'bg-gray-800/50 cursor-not-allowed' : 'bg-white/5'}`}
+                className={`block px-4 pb-4 pt-6 w-full text-lg text-white rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors custom-scrollbar ${generationHistory.length > 0 ? 'bg-gray-800/50 cursor-not-allowed' : 'bg-white/5'}`}
               />
               <label htmlFor="content" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-5 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
                 {generationHistory.length > 0 ? 'Raw Content (Locked for Regeneration)' : 'Paste your raw content here...'}
