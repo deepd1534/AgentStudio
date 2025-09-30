@@ -277,11 +277,12 @@ ${blogData.call_to_action}
   };
 
   return (
-    <div className="relative space-y-12 animate-fade-in">
+    <div className="relative space-y-8 animate-fade-in">
+      <div className="flex justify-end">
         <button 
             onClick={handleCopy} 
             title={isCopied ? "Copied!" : "Copy Content"}
-            className="absolute top-2 right-0 z-20 flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-200"
+            className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-200"
         >
             {isCopied ? (
                 <>
@@ -292,6 +293,8 @@ ${blogData.call_to_action}
                 <ClipboardCopyIcon className="w-5 h-5 text-gray-300" />
             )}
         </button>
+      </div>
+
       {/* Header */}
       <header className="text-center">
         <h1 className="text-4xl md:text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-cyan-200 mb-2">
