@@ -20,6 +20,20 @@
       .animate-fade-in {
         animation: fadeIn 0.8s ease-in-out;
       }
+      @keyframes zoomOutFade {
+        from { transform: scale(1); opacity: 1; }
+        to { transform: scale(0.95); opacity: 0; }
+      }
+      @keyframes zoomInFade {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      .animate-zoom-out-fade {
+        animation: zoomOutFade 0.4s ease-in-out forwards;
+      }
+      .animate-zoom-in-fade {
+        animation: zoomInFade 0.4s ease-in-out forwards;
+      }
     </style>
   <script type="importmap">
 {

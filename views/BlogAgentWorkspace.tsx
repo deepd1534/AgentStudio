@@ -172,7 +172,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </>
       ) : (
         <div className="flex flex-col items-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Blog Agent Workspace</h1>
+          <h1 className="text-4xl md:text-5xl font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 py-4">Blog Agent</h1>
           <p className="text-gray-400 text-center mb-12">Fill in the details below to generate your next masterpiece.</p>
 
           <form onSubmit={handleSubmit} className="w-full space-y-8">

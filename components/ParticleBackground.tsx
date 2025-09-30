@@ -10,7 +10,7 @@ const ParticleBackground: React.FC = () => {
     if (!ctx) return;
 
     let particles: Particle[] = [];
-    const particleCount = 70;
+    const particleCount = 150;
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -19,30 +19,36 @@ const ParticleBackground: React.FC = () => {
       x: number;
       y: number;
       size: number;
+      opacity: number;
       speedX: number;
       speedY: number;
 
       constructor() {
         this.x = Math.random() * canvas.width;
         this.y = Math.random() * canvas.height;
-        this.size = Math.random() * 2 + 1;
-        this.speedX = Math.random() * 0.5 - 0.25;
-        this.speedY = Math.random() * 0.5 - 0.25;
+        this.size = Math.random() * 1.5 + 0.2;
+        this.opacity = Math.random() * 0.5 + 0.2;
+        this.speedX = Math.random() * 0.2 - 0.1;
+        this.speedY = Math.random() * 0.2 - 0.1;
       }
 
       update() {
         this.x += this.speedX;
         this.y += this.speedY;
 
-        if (this.size > 0.1) this.size -= 0.01;
+        if (this.size > 0.1) this.size -= 0.005;
         if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
         if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+        
+        if (Math.random() > 0.98) {
+            this.opacity = Math.random() * 0.7 + 0.3;
+        }
       }
 
       draw() {
         if (ctx) {
-          ctx.fillStyle = 'rgba(0, 190, 255, 0.5)';
-          ctx.strokeStyle = 'rgba(0, 190, 255, 0.5)';
+          ctx.fillStyle = `rgba(0, 190, 255, ${this.opacity})`;
+          ctx.strokeStyle = `rgba(0, 190, 255, ${this.opacity})`;
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -86,7 +92,7 @@ const ParticleBackground: React.FC = () => {
     }
   }, []);
 
-  return <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full z-0" />;
+  return <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full z-[1]" />;
 };
 
 export default ParticleBackground;
