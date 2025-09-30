@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BlogContent } from '../types';
 import GlassmorphicCard from './GlassmorphicCard';
 import Accordion from './Accordion';
 import Chip from './Chip';
+import { ClipboardCopyIcon, CheckIcon } from './IconComponents';
 
 interface BlogOutputDisplayProps {
   blogData: BlogContent;
@@ -97,10 +98,65 @@ const createSections = (content: string, headings: string[]): { title: string; c
 };
 
 const BlogOutputDisplay: React.FC<BlogOutputDisplayProps> = ({ blogData, traceId, generatedAt }) => {
+  const [isCopied, setIsCopied] = useState(false);
   const blogSections = React.useMemo(() => createSections(blogData.content, blogData.headings), [blogData.content, blogData.headings]);
 
+  const handleCopy = () => {
+    const fullContent = `
+# ${blogData.title}
+## ${blogData.subtitle}
+
+**Reading Time:** ${blogData.reading_time}
+
+---
+
+### Meta Description
+${blogData.meta_description}
+
+### Introduction
+${blogData.introduction}
+
+---
+
+${blogSections.map(section => `## ${section.title}\n\n${section.content}`).join('\n\n---\n\n')}
+
+---
+
+### Conclusion
+${blogData.conclusion}
+
+### Call to Action
+${blogData.call_to_action}
+
+---
+**Tags:** ${blogData.tags.join(', ')}
+**Keywords:** ${blogData.keywords.join(', ')}
+    `.trim().replace(/(\n){3,}/g, '\n\n'); // Tidy up whitespace
+
+    navigator.clipboard.writeText(fullContent).then(() => {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2500);
+    }).catch(err => {
+        console.error("Failed to copy content:", err);
+    });
+  };
+
   return (
-    <div className="space-y-12 animate-fade-in">
+    <div className="relative space-y-12 animate-fade-in">
+        <button 
+            onClick={handleCopy} 
+            title={isCopied ? "Copied!" : "Copy Content"}
+            className="absolute -top-4 right-0 z-20 flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-200"
+        >
+            {isCopied ? (
+                <>
+                    <CheckIcon className="w-5 h-5 text-green-400" />
+                    <span className="text-sm text-green-300 pr-1">Copied!</span>
+                </>
+            ) : (
+                <ClipboardCopyIcon className="w-5 h-5 text-gray-300" />
+            )}
+        </button>
       {/* Header */}
       <header className="text-center">
         <h1 className="text-4xl md:text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-cyan-200 mb-2">

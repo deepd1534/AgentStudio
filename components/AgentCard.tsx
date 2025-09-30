@@ -5,12 +5,14 @@ interface AgentCardProps {
   description: string;
   icon: ReactNode;
   onClick: () => void;
+  disabled?: boolean;
 }
 
-const AgentCard: React.FC<AgentCardProps> = ({ name, description, icon, onClick }) => {
+const AgentCard: React.FC<AgentCardProps> = ({ name, description, icon, onClick, disabled = false }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (disabled) return;
     const card = cardRef.current;
     if (!card) return;
 
@@ -25,6 +27,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ name, description, icon, onClick 
   };
 
   const handleMouseLeave = () => {
+    if (disabled) return;
     const card = cardRef.current;
     if (card) {
       card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
@@ -36,8 +39,8 @@ const AgentCard: React.FC<AgentCardProps> = ({ name, description, icon, onClick 
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      onClick={onClick}
-      className="w-80 h-96 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl shadow-blue-500/10 transition-transform duration-300 ease-out cursor-pointer"
+      onClick={!disabled ? onClick : undefined}
+      className={`w-80 h-96 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl shadow-blue-500/10 transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
       style={{ transformStyle: 'preserve-3d' }}
     >
       <div className="p-8 flex flex-col items-center justify-between h-full" style={{ transform: 'translateZ(40px)' }}>
@@ -47,8 +50,8 @@ const AgentCard: React.FC<AgentCardProps> = ({ name, description, icon, onClick 
           <p className="text-gray-400 mt-2">{description}</p>
         </div>
         <div className="mt-auto">
-          <span className="text-blue-400 font-semibold group-hover:underline">
-            Open Workspace &rarr;
+          <span className={`font-semibold ${disabled ? 'text-gray-500' : 'text-blue-400 group-hover:underline'}`}>
+            {disabled ? 'Coming Soon' : 'Open Workspace →'}
           </span>
         </div>
       </div>

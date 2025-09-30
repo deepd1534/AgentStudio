@@ -1,6 +1,6 @@
 import React from 'react';
 import AgentCard from '../components/AgentCard';
-import { BrainCircuitIcon } from '../components/IconComponents';
+import { BrainCircuitIcon, CodeBracketSquareIcon } from '../components/IconComponents';
 
 interface DashboardProps {
   onSelectAgent: (agent: string) => void;
@@ -20,6 +20,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
           description="Generate comprehensive blog posts."
           icon={<BrainCircuitIcon className="w-16 h-16 text-cyan-300" />}
           onClick={() => onSelectAgent('blogAgent')}
+        />
+        <AgentCard
+          name="Code Agent"
+          description="Generate and debug code snippets."
+          icon={<CodeBracketSquareIcon className="w-16 h-16 text-gray-500" />}
+          onClick={() => {}}
+          disabled
         />
         {/* Future agents can be added here */}
       </div>
