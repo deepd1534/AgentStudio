@@ -176,17 +176,6 @@ const BlogOutputDisplay: React.FC<BlogOutputDisplayProps> = ({ blogData, traceId
         <p>Trace ID: {traceId}</p>
         <p>Generated At: {new Date(generatedAt).toLocaleString()}</p>
       </footer>
-
-      {/* FIX: Replaced non-standard `style jsx` with a standard `style` tag to fix TypeScript error. */}
-      <style>{`
-        .animate-fade-in {
-            animation: fadeIn 0.8s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 };

@@ -148,21 +148,23 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </div>
             </div>
             
-             {/* Feedback */}
-             <div className="relative">
-              <textarea
-                name="feedback"
-                id="feedback"
-                rows={3}
-                value={formData.feedback}
-                onChange={handleChange}
-                placeholder=" "
-                className="block px-4 pb-4 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors"
-              />
-              <label htmlFor="feedback" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-5 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
-                Feedback (optional)
-              </label>
-            </div>
+             {/* Feedback - Only show after the first generation */}
+             {!isFirstGeneration && (
+                <div className="relative animate-fade-in">
+                    <textarea
+                        name="feedback"
+                        id="feedback"
+                        rows={3}
+                        value={formData.feedback}
+                        onChange={handleChange}
+                        placeholder=" "
+                        className="block px-4 pb-4 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors"
+                    />
+                    <label htmlFor="feedback" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-5 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
+                        Provide feedback for regeneration...
+                    </label>
+                </div>
+             )}
 
             {/* Submit Button */}
             <div className="flex justify-center pt-4">
