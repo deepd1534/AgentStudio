@@ -1,43 +1,130 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AgentCard from '../components/AgentCard';
-import { PencilSquareIcon, CodeBracketSquareIcon, ChartBarIcon } from '../components/IconComponents';
+import { 
+  PencilSquareIcon, 
+  CodeBracketSquareIcon, 
+  ChartBarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  AcademicCapIcon,
+  PhotoIcon,
+  MusicNoteIcon
+} from '../components/IconComponents';
 
 interface DashboardProps {
   onSelectAgent: (agent: string) => void;
 }
 
+const allAgents = [
+  {
+    id: 'blogAgent',
+    name: 'Blog Agent',
+    description: 'Generate comprehensive blog posts.',
+    icon: <PencilSquareIcon className="w-16 h-16 text-cyan-300" />,
+    disabled: false,
+  },
+  {
+    id: 'codeAgent',
+    name: 'Code Agent',
+    description: 'Generate and debug code snippets.',
+    icon: <CodeBracketSquareIcon className="w-16 h-16 text-gray-500" />,
+    disabled: true,
+  },
+  {
+    id: 'stockAgent',
+    name: 'Stock Agent',
+    description: 'Analyze market trends and data.',
+    icon: <ChartBarIcon className="w-16 h-16 text-gray-500" />,
+    disabled: true,
+  },
+  {
+    id: 'researchAgent',
+    name: 'Research Agent',
+    description: 'Conduct in-depth research.',
+    icon: <AcademicCapIcon className="w-16 h-16 text-gray-500" />,
+    disabled: true,
+  },
+  {
+    id: 'imageAgent',
+    name: 'Image Agent',
+    description: 'Create stunning visuals from text.',
+    icon: <PhotoIcon className="w-16 h-16 text-gray-500" />,
+    disabled: true,
+  },
+  {
+    id: 'musicAgent',
+    name: 'Music Agent',
+    description: 'Compose original music scores.',
+    icon: <MusicNoteIcon className="w-16 h-16 text-gray-500" />,
+    disabled: true,
+  },
+];
+
+const AGENTS_PER_PAGE = 3;
+
+
 const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const totalPages = Math.ceil(allAgents.length / AGENTS_PER_PAGE);
+  const startIndex = currentPage * AGENTS_PER_PAGE;
+  const endIndex = startIndex + AGENTS_PER_PAGE;
+  const displayedAgents = allAgents.slice(startIndex, endIndex);
+
+  const goToNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages - 1));
+  };
+
+  const goToPrevPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 0));
+  };
+
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <div className="w-full max-w-7xl mx-auto p-8 md:p-16 rounded-3xl bg-black/20 backdrop-blur-2xl border border-white/10 shadow-2xl shadow-blue-500/10">
         <div className="flex flex-col items-center justify-center">
-          <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300 animate-pulse py-4">
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300 animate-pulse px-4 py-2">
             Agent Studio
           </h1>
-          <p className="text-gray-400 mb-16 text-lg">Your futuristic hub for AI agent management.</p>
+          <p className="text-gray-400 mb-16 text-lg">Unleash creativity and productivity with our suite of AI agents.</p>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <AgentCard
-              name="Blog Agent"
-              description="Generate comprehensive blog posts."
-              icon={<PencilSquareIcon className="w-16 h-16 text-cyan-300" />}
-              onClick={() => onSelectAgent('blogAgent')}
-            />
-            <AgentCard
-              name="Code Agent"
-              description="Generate and debug code snippets."
-              icon={<CodeBracketSquareIcon className="w-16 h-16 text-gray-500" />}
-              onClick={() => {}}
-              disabled
-            />
-            <AgentCard
-              name="Stock Agent"
-              description="Analyze market trends and data."
-              icon={<ChartBarIcon className="w-16 h-16 text-gray-500" />}
-              onClick={() => {}}
-              disabled
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12 min-h-[420px]">
+            {displayedAgents.map(agent => (
+              <AgentCard
+                key={agent.id}
+                name={agent.name}
+                description={agent.description}
+                icon={agent.icon}
+                onClick={() => onSelectAgent(agent.id)}
+                disabled={agent.disabled}
+              />
+            ))}
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-6">
+              <button
+                onClick={goToPrevPage}
+                disabled={currentPage === 0}
+                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Previous page"
+              >
+                <ChevronLeftIcon className="w-6 h-6" />
+              </button>
+              <span className="text-gray-400 font-semibold tracking-wider">
+                {currentPage + 1} / {totalPages}
+              </span>
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage >= totalPages - 1}
+                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Next page"
+              >
+                <ChevronRightIcon className="w-6 h-6" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
