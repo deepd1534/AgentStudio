@@ -10,6 +10,54 @@ interface BlogOutputDisplayProps {
   generatedAt: string;
 }
 
+// A simple component to render basic markdown (bold, lists)
+const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
+    // Helper to render bold text
+    const renderBold = (line: string) => {
+      const parts = line.split('**');
+      return (
+        <>
+          {parts.map((part, index) =>
+            index % 2 === 1 ? <strong key={index} className="text-white font-semibold">{part}</strong> : <>{part}</>
+          )}
+        </>
+      );
+    };
+  
+    const lines = text.split('\n');
+    const elements: React.ReactNode[] = [];
+    let listItems: React.ReactNode[] = [];
+  
+    const flushList = () => {
+      if (listItems.length > 0) {
+        elements.push(
+          <ul key={`ul-${elements.length}`} className="list-disc list-inside space-y-2 my-4 pl-4">
+            {listItems}
+          </ul>
+        );
+        listItems = [];
+      }
+    };
+  
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+      if (trimmedLine.startsWith('* ')) {
+        const content = trimmedLine.substring(2);
+        listItems.push(<li key={index}>{renderBold(content)}</li>);
+      } else {
+        flushList();
+        if (trimmedLine) {
+            elements.push(<p key={index} className="mb-4">{renderBold(trimmedLine)}</p>);
+        }
+      }
+    });
+  
+    flushList(); // Add any remaining list items at the end
+  
+    return <div className="text-gray-300 leading-relaxed">{elements}</div>;
+};
+
+
 // Helper to parse the main content into sections based on headings
 const createSections = (content: string, headings: string[]): { title: string; content: string }[] => {
     if (!content.trim() || !headings || headings.length === 0) {
@@ -83,7 +131,7 @@ const BlogOutputDisplay: React.FC<BlogOutputDisplayProps> = ({ blogData, traceId
         <div className="space-y-4">
           {blogSections.map((section, index) => (
             <Accordion key={index} title={section.title}>
-              <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">{section.content}</p>
+              <MarkdownRenderer text={section.content} />
             </Accordion>
           ))}
         </div>
@@ -92,7 +140,7 @@ const BlogOutputDisplay: React.FC<BlogOutputDisplayProps> = ({ blogData, traceId
          <GlassmorphicCard>
             <div className="p-6">
                 <h2 className="text-2xl font-bold text-blue-300 mb-4">Content</h2>
-                <p className="text-gray-300 whitespace-pre-wrap leading-relaxed">{blogData.content}</p>
+                <MarkdownRenderer text={blogData.content} />
             </div>
           </GlassmorphicCard>
       )}
