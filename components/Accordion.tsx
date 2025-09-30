@@ -7,7 +7,7 @@ interface AccordionProps {
 }
 
 const Accordion: React.FC<AccordionProps> = ({ title, children }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   return (
     <div className="border border-white/10 rounded-lg bg-white/5 backdrop-blur-sm overflow-hidden">
@@ -22,7 +22,7 @@ const Accordion: React.FC<AccordionProps> = ({ title, children }) => {
       </button>
       <div
         className={`transition-all duration-500 ease-in-out ${
-          isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
         <div className="p-5 pt-0 text-gray-300">{children}</div>
