@@ -1,6 +1,6 @@
 import React from 'react';
 import AgentCard from '../components/AgentCard';
-import { BrainCircuitIcon, CodeBracketSquareIcon } from '../components/IconComponents';
+import { BrainCircuitIcon, CodeBracketSquareIcon, ChartBarIcon } from '../components/IconComponents';
 
 interface DashboardProps {
   onSelectAgent: (agent: string) => void;
@@ -28,7 +28,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
           onClick={() => {}}
           disabled
         />
-        {/* Future agents can be added here */}
+        <AgentCard
+          name="Stock Agent"
+          description="Analyze market trends and data."
+          icon={<ChartBarIcon className="w-16 h-16 text-gray-500" />}
+          onClick={() => {}}
+          disabled
+        />
       </div>
     </div>
   );
