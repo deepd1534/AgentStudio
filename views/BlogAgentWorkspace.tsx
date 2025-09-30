@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Tone, BlogAgentRequest, BlogAgentResponse } from '../types';
-import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/IconComponents';
+import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon } from '../components/IconComponents';
 import BlogOutputDisplay from '../components/BlogOutputDisplay';
 
 const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -80,6 +80,14 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setIsLoading(false);
     }
   }, [formData, sessionId, generationHistory]);
+
+  const handleWordCountIncrease = useCallback(() => {
+    setFormData(prev => ({ ...prev, word_count: (prev.word_count || 0) + 1 }));
+  }, []);
+
+  const handleWordCountDecrease = useCallback(() => {
+    setFormData(prev => ({ ...prev, word_count: Math.max(0, (prev.word_count || 0) - 1) }));
+  }, []);
   
   const handleRegenerate = () => {
     setShowForm(true);
@@ -255,8 +263,24 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
               {/* Word Count */}
               <div className="relative">
-                <input type="number" id="word_count" name="word_count" value={formData.word_count} onChange={handleChange} className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" placeholder=" " />
+                <input 
+                  type="number" 
+                  id="word_count" 
+                  name="word_count" 
+                  value={formData.word_count} 
+                  onChange={handleChange} 
+                  className="block px-4 pr-10 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors hide-number-spinner"
+                  placeholder=" " 
+                />
                 <label htmlFor="word_count" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Word Count</label>
+                <div className="absolute top-0 right-0 h-full flex flex-col justify-center pr-3">
+                    <button type="button" aria-label="Increase word count" onClick={handleWordCountIncrease} className="h-1/2 flex items-end pb-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
+                        <ChevronUpIcon className="w-4 h-4" />
+                    </button>
+                    <button type="button" aria-label="Decrease word count" onClick={handleWordCountDecrease} className="h-1/2 flex items-start pt-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
+                        <ChevronDownIcon className="w-4 h-4" />
+                    </button>
+                </div>
               </div>
 
               {/* SEO Checkbox */}

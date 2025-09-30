@@ -34,6 +34,15 @@
       .animate-zoom-in-fade {
         animation: zoomInFade 0.4s ease-in-out forwards;
       }
+      /* Hide number input spinners */
+      .hide-number-spinner::-webkit-outer-spin-button,
+      .hide-number-spinner::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .hide-number-spinner {
+        -moz-appearance: textfield;
+      }
     </style>
   <script type="importmap">
 {
