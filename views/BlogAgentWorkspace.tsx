@@ -13,7 +13,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     include_seo: true,
     feedback: '',
   });
-
+  const [isCustomTone, setIsCustomTone] = useState(false);
   const [blogOutput, setBlogOutput] = useState<BlogAgentResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +91,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setBlogOutput(null);
     setError(null);
     setIsFirstGeneration(true);
+    setIsCustomTone(false);
     window.scrollTo(0, 0);
   };
 
@@ -150,12 +151,54 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
               {/* Tone */}
               <div className="relative">
-                <select id="tone" name="tone" value={formData.tone} onChange={handleChange} className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent">
-                  {Object.values(Tone).map(toneValue => (
-                    <option key={toneValue} value={toneValue} className="bg-gray-800 text-white">{toneValue}</option>
-                  ))}
-                </select>
-                <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Tone</label>
+                {isCustomTone ? (
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      id="tone" 
+                      name="tone" 
+                      value={formData.tone} 
+                      onChange={handleChange} 
+                      className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
+                      placeholder=" "
+                      autoFocus
+                    />
+                    <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
+                      Custom Tone
+                    </label>
+                    <button 
+                      type="button" 
+                      onClick={() => { setIsCustomTone(false); setFormData(prev => ({...prev, tone: Tone.PROFESSIONAL}))}}
+                      className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 bg-white/5 px-2 py-1 rounded-md transition-colors"
+                      title="Select from presets"
+                    >
+                      Presets
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <select 
+                      id="tone" 
+                      name="tone" 
+                      value={formData.tone} 
+                      onChange={(e) => {
+                        if (e.target.value === 'custom') {
+                          setIsCustomTone(true);
+                          setFormData(prev => ({ ...prev, tone: '' }));
+                        } else {
+                          handleChange(e);
+                        }
+                      }} 
+                      className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
+                    >
+                      {Object.values(Tone).map(toneValue => (
+                        <option key={toneValue} value={toneValue} className="bg-gray-800 text-white">{toneValue}</option>
+                      ))}
+                      <option value="custom" className="bg-gray-700 text-blue-300 font-semibold">Custom...</option>
+                    </select>
+                    <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Tone</label>
+                  </>
+                )}
               </div>
 
               {/* Word Count */}

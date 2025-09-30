@@ -10,7 +10,7 @@ export interface BlogAgentRequest {
   session_id: string;
   content: string;
   target_audience: string;
-  tone: Tone;
+  tone: string;
   word_count: number;
   include_seo: boolean;
   feedback: string;

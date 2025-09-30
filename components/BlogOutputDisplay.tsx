@@ -97,12 +97,47 @@ const createSections = (content: string, headings: string[]): { title: string; c
     return sections;
 };
 
+const markdownToHtml = (markdown: string): string => {
+  if (!markdown) return '';
+  const lines = markdown.split('\n');
+  let html = '';
+  let inList = false;
+
+  const processLine = (line: string) => line.trim().replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+  lines.forEach(line => {
+    if (line.trim().startsWith('* ')) {
+      const content = processLine(line.trim().substring(2));
+      if (!inList) {
+        html += '<ul>';
+        inList = true;
+      }
+      html += `<li>${content}</li>`;
+    } else {
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      const processedLine = processLine(line);
+      if (processedLine) {
+        html += `<p>${processedLine}</p>`;
+      }
+    }
+  });
+
+  if (inList) {
+    html += '</ul>';
+  }
+  return html;
+};
+
+
 const BlogOutputDisplay: React.FC<BlogOutputDisplayProps> = ({ blogData, traceId, generatedAt }) => {
   const [isCopied, setIsCopied] = useState(false);
   const blogSections = React.useMemo(() => createSections(blogData.content, blogData.headings), [blogData.content, blogData.headings]);
 
-  const handleCopy = () => {
-    const fullContent = `
+  const handleCopy = async () => {
+    const plainText = `
 # ${blogData.title}
 ## ${blogData.subtitle}
 
@@ -131,14 +166,53 @@ ${blogData.call_to_action}
 ---
 **Tags:** ${blogData.tags.join(', ')}
 **Keywords:** ${blogData.keywords.join(', ')}
-    `.trim().replace(/(\n){3,}/g, '\n\n'); // Tidy up whitespace
+    `.trim().replace(/(\n){3,}/g, '\n\n');
 
-    navigator.clipboard.writeText(fullContent).then(() => {
+    const htmlString = `
+        <h1>${blogData.title}</h1>
+        <h2>${blogData.subtitle}</h2>
+        <p><em>Reading Time: ${blogData.reading_time}</em></p>
+        <hr />
+        <h3>Meta Description</h3>
+        <p>${blogData.meta_description}</p>
+        <h3>Introduction</h3>
+        <p>${blogData.introduction}</p>
+        <hr />
+        ${blogSections.map(section => `<h2>${section.title}</h2>${markdownToHtml(section.content)}`).join('\n')}
+        <hr />
+        <h3>Conclusion</h3>
+        <p>${blogData.conclusion}</p>
+        <h3>Call to Action</h3>
+        <p>${blogData.call_to_action}</p>
+        <hr />
+        <p><strong>Tags:</strong> ${blogData.tags.join(', ')}</p>
+        <p><strong>Keywords:</strong> ${blogData.keywords.join(', ')}</p>
+    `;
+
+    try {
+        if (!navigator.clipboard.write) {
+            throw new Error("Clipboard API 'write' not supported. Falling back to plain text.");
+        }
+        const htmlBlob = new Blob([htmlString], { type: 'text/html' });
+        const textBlob = new Blob([plainText], { type: 'text/plain' });
+        const clipboardItem = new ClipboardItem({
+            'text/html': htmlBlob,
+            'text/plain': textBlob,
+        });
+        await navigator.clipboard.write([clipboardItem]);
+        
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2500);
-    }).catch(err => {
-        console.error("Failed to copy content:", err);
-    });
+
+    } catch (err) {
+        console.warn("Rich text copy failed, falling back to plain text:", err);
+        navigator.clipboard.writeText(plainText).then(() => {
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2500);
+        }).catch(copyErr => {
+            console.error("Failed to copy plain text:", copyErr);
+        });
+    }
   };
 
   return (
@@ -146,7 +220,7 @@ ${blogData.call_to_action}
         <button 
             onClick={handleCopy} 
             title={isCopied ? "Copied!" : "Copy Content"}
-            className="absolute -top-4 right-0 z-20 flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-200"
+            className="absolute top-2 right-0 z-20 flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-200"
         >
             {isCopied ? (
                 <>
