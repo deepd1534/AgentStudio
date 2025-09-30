@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
-import { Tone, BlogAgentRequest, BlogAgentResponse, BlogContent } from '../types';
-import { ArrowLeftIcon, SparklesIcon, EditIcon, CheckIcon, LoaderIcon } from '../components/IconComponents';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Tone, BlogAgentRequest, BlogAgentResponse } from '../types';
+import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon } from '../components/IconComponents';
 import BlogOutputDisplay from '../components/BlogOutputDisplay';
 
 const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const [sessionId, setSessionId] = useState('');
   const [formData, setFormData] = useState<Omit<BlogAgentRequest, 'session_id'>>({
     content: '',
     target_audience: '',
@@ -17,6 +18,11 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFirstGeneration, setIsFirstGeneration] = useState(true);
+
+  // Generate initial session ID on component mount
+  useEffect(() => {
+    setSessionId(crypto.randomUUID());
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -38,7 +44,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     const requestBody: BlogAgentRequest = {
       ...formData,
-      session_id: 'abc123-session',
+      session_id: sessionId,
     };
 
     console.log('Sending request:', JSON.stringify(requestBody, null, 2));
@@ -65,19 +71,41 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [formData]);
+  }, [formData, sessionId]);
   
   const handleRegenerate = () => {
     setBlogOutput(null);
     window.scrollTo(0, 0);
   }
 
+  const handleNewSession = () => {
+    setSessionId(crypto.randomUUID());
+    setFormData({
+        content: '',
+        target_audience: '',
+        tone: Tone.PROFESSIONAL,
+        word_count: 1000,
+        include_seo: true,
+        feedback: '',
+    });
+    setBlogOutput(null);
+    setError(null);
+    setIsFirstGeneration(true);
+    window.scrollTo(0, 0);
+  };
+
   return (
     <div className="min-h-screen w-full max-w-5xl mx-auto p-4 md:p-8">
-      <button onClick={onBack} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 group">
-        <ArrowLeftIcon className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-        Back to Studio
-      </button>
+      <div className="flex justify-between items-center mb-8">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <ArrowLeftIcon className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            Back to Studio
+        </button>
+        <button onClick={handleNewSession} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <PlusCircleIcon className="w-6 h-6" />
+            New Session
+        </button>
+      </div>
 
       {blogOutput ? (
         <>
@@ -190,8 +218,6 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </form>
         </div>
       )}
-      {/* FIX: Removed invalid `style jsx` tag which caused a TypeScript error. 
-          The custom classes have been replaced with their full Tailwind CSS equivalents directly on the elements. */}
     </div>
   );
 };
