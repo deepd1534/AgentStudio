@@ -238,7 +238,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         name="target_audience" 
                         value={formData.target_audience} 
                         onChange={handleChange} 
-                        className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
+                        className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
                         placeholder=" "
                         autoFocus
                       />
@@ -268,7 +268,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             handleChange(e);
                           }
                         }} 
-                        className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
+                        className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
                       >
                         {Object.values(Audience).map(audienceValue => (
                           <option key={audienceValue} value={audienceValue} className="bg-gray-800 text-white">{audienceValue}</option>
@@ -290,7 +290,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         name="tone" 
                         value={formData.tone} 
                         onChange={handleChange} 
-                        className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
+                        className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
                         placeholder=" "
                         autoFocus
                       />
@@ -320,7 +320,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             handleChange(e);
                           }
                         }} 
-                        className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
+                        className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
                       >
                         {Object.values(Tone).map(toneValue => (
                           <option key={toneValue} value={toneValue} className="bg-gray-800 text-white">{toneValue}</option>
@@ -340,7 +340,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     name="word_count" 
                     value={formData.word_count} 
                     onChange={handleChange} 
-                    className="block px-4 pr-10 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors hide-number-spinner"
+                    className="block px-4 pr-10 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors hide-number-spinner"
                     placeholder=" " 
                   />
                   <label htmlFor="word_count" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Word Count</label>
@@ -424,7 +424,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex items-center justify-center gap-3 w-full md:w-auto bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-bold py-4 px-12 rounded-lg shadow-lg shadow-blue-500/30 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group flex items-center justify-center gap-3 w-full md:w-auto bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold py-4 px-12 rounded-lg shadow-lg shadow-indigo-500/40 transform hover:scale-105 hover:shadow-indigo-400/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <>
@@ -433,7 +433,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </>
                   ) : (
                     <>
-                      <SparklesIcon className="w-6 h-6" />
+                      <SparklesIcon className="w-6 h-6 group-hover:rotate-12 group-hover:scale-110 transition-transform duration-300" />
                       <span>{generationHistory.length === 0 ? 'Generate Blog' : 'Regenerate Blog'}</span>
                     </>
                   )}

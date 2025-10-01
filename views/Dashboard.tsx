@@ -8,7 +8,8 @@ import {
   ChevronRightIcon,
   AcademicCapIcon,
   PhotoIcon,
-  MusicNoteIcon
+  MusicNoteIcon,
+  BrainCircuitIcon
 } from '../components/IconComponents';
 
 interface DashboardProps {
@@ -125,6 +126,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
               </button>
             </div>
           )}
+
+          <footer className="mt-16 text-center text-gray-600">
+            <div className="flex items-center justify-center gap-2">
+              <BrainCircuitIcon className="w-4 h-4" />
+              <p className="text-sm">Crafted with AI precision by Deep</p>
+            </div>
+          </footer>
         </div>
       </div>
     </div>

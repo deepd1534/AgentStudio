@@ -40,19 +40,14 @@ const AgentCard: React.FC<AgentCardProps> = ({ name, description, icon, onClick,
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={!disabled ? onClick : undefined}
-      className={`w-80 h-96 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl shadow-blue-500/10 transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+      className={`group w-80 h-96 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl shadow-blue-500/10 transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-blue-400/40'}`}
       style={{ transformStyle: 'preserve-3d' }}
     >
-      <div className="p-8 flex flex-col items-center justify-between h-full" style={{ transform: 'translateZ(40px)' }}>
+      <div className="p-8 flex flex-col items-center justify-center h-full" style={{ transform: 'translateZ(40px)' }}>
         <div className="flex flex-col items-center text-center">
             {icon}
           <h2 className="text-3xl font-bold mt-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">{name}</h2>
           <p className="text-gray-400 mt-2">{description}</p>
-        </div>
-        <div className="mt-auto">
-          <span className={`font-semibold ${disabled ? 'text-gray-500' : 'text-blue-400 group-hover:underline'}`}>
-            {disabled ? 'Coming Soon' : 'Open Workspace →'}
-          </span>
         </div>
       </div>
     </div>
