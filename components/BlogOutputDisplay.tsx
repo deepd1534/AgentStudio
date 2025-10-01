@@ -107,7 +107,7 @@ const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
     } else { // Paragraphs
       flushList();
       flushTable();
-      if (trimmedLine) {
+      if (trimmedLine && trimmedLine !== '#') {
         elements.push(<p key={index} className="mb-4">{renderInline(trimmedLine)}</p>);
       }
     }

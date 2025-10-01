@@ -13,6 +13,8 @@ export interface BlogAgentRequest {
   tone: string;
   word_count: number;
   include_seo: boolean;
+  is_hackernews: boolean;
+  is_duckduckgo: boolean;
   feedback: string;
 }
 
