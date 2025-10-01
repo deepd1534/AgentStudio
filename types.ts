@@ -6,6 +6,14 @@ export enum Tone {
   INSPIRATIONAL = 'Inspirational',
 }
 
+export enum Audience {
+  GENERAL = 'General Public',
+  DEVELOPERS = 'Developers',
+  MARKETERS = 'Marketers',
+  STUDENTS = 'Students',
+  ENTREPRENEURS = 'Entrepreneurs',
+}
+
 export interface BlogAgentRequest {
   session_id: string;
   content: string;

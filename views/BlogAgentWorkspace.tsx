@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Tone, BlogAgentRequest, BlogAgentResponse } from '../types';
+import { Tone, Audience, BlogAgentRequest, BlogAgentResponse } from '../types';
 import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, MagnifyingGlassIcon, FireIcon } from '../components/IconComponents';
 import BlogOutputDisplay from '../components/BlogOutputDisplay';
 
@@ -7,7 +7,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [sessionId, setSessionId] = useState('');
   const [formData, setFormData] = useState<Omit<BlogAgentRequest, 'session_id'>>({
     content: '',
-    target_audience: '',
+    target_audience: Audience.GENERAL,
     tone: Tone.PROFESSIONAL,
     word_count: 1000,
     include_seo: true,
@@ -16,6 +16,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     feedback: '',
   });
   const [isCustomTone, setIsCustomTone] = useState(false);
+  const [isCustomAudience, setIsCustomAudience] = useState(false);
   
   const [generationHistory, setGenerationHistory] = useState<BlogAgentResponse[]>([]);
   const [currentGenerationIndex, setCurrentGenerationIndex] = useState(0);
@@ -108,7 +109,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setSessionId(crypto.randomUUID());
     setFormData({
         content: '',
-        target_audience: '',
+        target_audience: Audience.GENERAL,
         tone: Tone.PROFESSIONAL,
         word_count: 1000,
         include_seo: true,
@@ -121,6 +122,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setError(null);
     setShowForm(true);
     setIsCustomTone(false);
+    setIsCustomAudience(false);
     window.scrollTo(0, 0);
   };
 
@@ -196,202 +198,251 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       )}
 
       {showForm && (
-        <div ref={formRef} className="flex flex-col items-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 py-6 px-4">
-            {generationHistory.length > 0 ? 'Tweak & Regenerate' : 'Blog Agent'}
-          </h1>
-          <p className="text-gray-400 text-center mb-12">
-            {generationHistory.length > 0 ? 'Adjust the settings below and generate a new version.' : 'Fill in the details below to generate your next masterpiece.'}
-          </p>
+        <>
+          <div className="fixed bottom-0 left-0 w-full h-2/3 bg-gradient-to-t from-gray-900 via-gray-900/90 to-transparent pointer-events-none z-20" />
+          <div ref={formRef} className="relative z-30 flex flex-col items-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 py-6 px-4">
+              {generationHistory.length > 0 ? 'Tweak & Regenerate' : 'Blog Agent'}
+            </h1>
+            <p className="text-gray-400 text-center mb-12">
+              {generationHistory.length > 0 ? 'Adjust the settings below and generate a new version.' : 'Fill in the details below to generate your next masterpiece.'}
+            </p>
 
-          <form onSubmit={handleSubmit} className="w-full space-y-8">
-            {/* Input Area */}
-            <div className="relative">
-              <textarea
-                name="content"
-                id="content"
-                rows={8}
-                value={formData.content}
-                onChange={handleChange}
-                placeholder=" "
-                readOnly={generationHistory.length > 0}
-                className={`block px-4 pb-4 pt-6 w-full text-lg text-white rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors custom-scrollbar ${generationHistory.length > 0 ? 'bg-gray-800/50 cursor-not-allowed' : 'bg-white/5'}`}
-              />
-              <label htmlFor="content" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-5 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
-                {generationHistory.length > 0 ? 'Raw Content (Locked for Regeneration)' : 'Paste your raw content here...'}
-              </label>
-            </div>
-
-            {/* Parameter Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:items-start">
-              {/* Target Audience */}
+            <form onSubmit={handleSubmit} className="w-full space-y-8">
+              {/* Input Area */}
               <div className="relative">
-                <input type="text" id="target_audience" name="target_audience" value={formData.target_audience} onChange={handleChange} className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" placeholder=" " />
-                <label htmlFor="target_audience" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Target Audience</label>
-              </div>
-
-              {/* Tone */}
-              <div className="relative">
-                {isCustomTone ? (
-                  <div className="relative">
-                    <input 
-                      type="text" 
-                      id="tone" 
-                      name="tone" 
-                      value={formData.tone} 
-                      onChange={handleChange} 
-                      className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
-                      placeholder=" "
-                      autoFocus
-                    />
-                    <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
-                      Custom Tone
-                    </label>
-                    <button 
-                      type="button" 
-                      onClick={() => { setIsCustomTone(false); setFormData(prev => ({...prev, tone: Tone.PROFESSIONAL}))}}
-                      className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 bg-white/5 px-2 py-1 rounded-md transition-colors"
-                      title="Select from presets"
-                    >
-                      Presets
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <select 
-                      id="tone" 
-                      name="tone" 
-                      value={formData.tone} 
-                      onChange={(e) => {
-                        if (e.target.value === 'custom') {
-                          setIsCustomTone(true);
-                          setFormData(prev => ({ ...prev, tone: '' }));
-                        } else {
-                          handleChange(e);
-                        }
-                      }} 
-                      className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
-                    >
-                      {Object.values(Tone).map(toneValue => (
-                        <option key={toneValue} value={toneValue} className="bg-gray-800 text-white">{toneValue}</option>
-                      ))}
-                      <option value="custom" className="bg-gray-700 text-blue-300 font-semibold">Custom...</option>
-                    </select>
-                    <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Tone</label>
-                  </>
-                )}
-              </div>
-
-              {/* Word Count */}
-              <div className="relative">
-                <input 
-                  type="number" 
-                  id="word_count" 
-                  name="word_count" 
-                  value={formData.word_count} 
-                  onChange={handleChange} 
-                  className="block px-4 pr-10 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors hide-number-spinner"
-                  placeholder=" " 
+                <textarea
+                  name="content"
+                  id="content"
+                  rows={8}
+                  value={formData.content}
+                  onChange={handleChange}
+                  placeholder=" "
+                  readOnly={generationHistory.length > 0}
+                  className={`block px-4 pb-4 pt-6 w-full text-lg text-white rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors custom-scrollbar ${generationHistory.length > 0 ? 'bg-gray-800/50 cursor-not-allowed' : 'bg-white/5'}`}
                 />
-                <label htmlFor="word_count" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Word Count</label>
-                <div className="absolute top-0 right-0 h-full flex flex-col justify-center pr-3">
-                    <button type="button" aria-label="Increase word count" onClick={handleWordCountIncrease} className="h-1/2 flex items-end pb-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
-                        <ChevronUpIcon className="w-4 h-4" />
-                    </button>
-                    <button type="button" aria-label="Decrease word count" onClick={handleWordCountDecrease} className="h-1/2 flex items-start pt-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
-                        <ChevronDownIcon className="w-4 h-4" />
-                    </button>
-                </div>
+                <label htmlFor="content" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-5 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
+                  {generationHistory.length > 0 ? 'Raw Content (Locked for Regeneration)' : 'Enter a topic or paste your raw content...'}
+                </label>
               </div>
 
-              {/* Toggles Container */}
-              <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                    {/* SEO Checkbox */}
-                    <div className="flex items-center justify-center bg-white/5 rounded-lg border border-white/20 p-4">
-                    <label htmlFor="include_seo" className="flex items-center cursor-pointer group">
-                        <div className="relative">
-                        <input type="checkbox" id="include_seo" name="include_seo" checked={formData.include_seo} onChange={handleChange} className="sr-only peer" />
-                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-blue-500 transition-colors duration-300 ease-in-out"></div>
-                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
-                            <MagnifyingGlassIcon className="w-4 h-4 text-gray-700 peer-checked:text-blue-500 transition-colors" />
-                        </div>
-                        </div>
-                        <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">SEO</span>
-                    </label>
-                    </div>
-                    {/* HackerNews Checkbox */}
-                    <div className="flex items-center justify-center bg-white/5 rounded-lg border border-white/20 p-4">
-                    <label htmlFor="is_hackernews" className="flex items-center cursor-pointer group">
-                        <div className="relative">
-                        <input type="checkbox" id="is_hackernews" name="is_hackernews" checked={formData.is_hackernews} onChange={handleChange} className="sr-only peer" />
-                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-orange-500 transition-colors duration-300 ease-in-out"></div>
-                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
-                            <FireIcon className="w-4 h-4 text-gray-700 peer-checked:text-orange-500 transition-colors" />
-                        </div>
-                        </div>
-                        <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">HackerNews</span>
-                    </label>
-                    </div>
-                </div>
-                 {/* DuckDuckGo Checkbox */}
-                 <div className="flex items-center justify-center bg-white/5 rounded-lg border border-white/20 p-4">
-                  <label htmlFor="is_duckduckgo" className="flex items-center cursor-pointer group">
+              {/* Parameter Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:items-start">
+                {/* Target Audience */}
+                <div className="relative">
+                  {isCustomAudience ? (
                     <div className="relative">
-                      <input type="checkbox" id="is_duckduckgo" name="is_duckduckgo" checked={formData.is_duckduckgo} onChange={handleChange} className="sr-only peer" />
-                      <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-red-500 transition-colors duration-300 ease-in-out"></div>
-                      <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
-                        <img src="/assets/icons8-duckduckgo.svg" alt="DuckDuckGo logo" className="w-4 h-4" />
-                      </div>
-                    </div>
-                    <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">DuckDuckGo</span>
-                  </label>
-                </div>
-              </div>
-
-            </div>
-            
-             {/* Feedback - Only show after the first generation */}
-             {generationHistory.length > 0 && (
-                <div className="relative animate-fade-in">
-                    <textarea
-                        name="feedback"
-                        id="feedback"
-                        rows={3}
-                        value={formData.feedback}
-                        onChange={handleChange}
+                      <input 
+                        type="text" 
+                        id="target_audience" 
+                        name="target_audience" 
+                        value={formData.target_audience} 
+                        onChange={handleChange} 
+                        className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
                         placeholder=" "
-                        className="block px-4 pb-4 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors"
-                    />
-                    <label htmlFor="feedback" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-5 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
-                        Provide feedback for regeneration...
-                    </label>
+                        autoFocus
+                      />
+                      <label htmlFor="target_audience" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
+                        Custom Audience
+                      </label>
+                      <button 
+                        type="button" 
+                        onClick={() => { setIsCustomAudience(false); setFormData(prev => ({...prev, target_audience: Audience.GENERAL}))}}
+                        className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 bg-white/5 px-2 py-1 rounded-md transition-colors"
+                        title="Select from presets"
+                      >
+                        Presets
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <select 
+                        id="target_audience" 
+                        name="target_audience" 
+                        value={formData.target_audience} 
+                        onChange={(e) => {
+                          if (e.target.value === 'custom') {
+                            setIsCustomAudience(true);
+                            setFormData(prev => ({ ...prev, target_audience: '' }));
+                          } else {
+                            handleChange(e);
+                          }
+                        }} 
+                        className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
+                      >
+                        {Object.values(Audience).map(audienceValue => (
+                          <option key={audienceValue} value={audienceValue} className="bg-gray-800 text-white">{audienceValue}</option>
+                        ))}
+                        <option value="custom" className="bg-gray-700 text-blue-300 font-semibold">Custom...</option>
+                      </select>
+                      <label htmlFor="target_audience" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Target Audience</label>
+                    </>
+                  )}
                 </div>
-             )}
 
-            {/* Submit Button */}
-            <div className="flex justify-center pt-4">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex items-center justify-center gap-3 w-full md:w-auto bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-bold py-4 px-12 rounded-lg shadow-lg shadow-blue-500/30 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <>
-                    <LoaderIcon className="w-6 h-6 animate-spin" />
-                    <span>Generating...</span>
-                  </>
-                ) : (
-                  <>
-                    <SparklesIcon className="w-6 h-6" />
-                    <span>{generationHistory.length === 0 ? 'Generate Blog' : 'Regenerate Blog'}</span>
-                  </>
-                )}
-              </button>
-            </div>
-            {error && <p className="text-center text-red-400 mt-4">{error}</p>}
-          </form>
-        </div>
+                {/* Tone */}
+                <div className="relative">
+                  {isCustomTone ? (
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        id="tone" 
+                        name="tone" 
+                        value={formData.tone} 
+                        onChange={handleChange} 
+                        className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
+                        placeholder=" "
+                        autoFocus
+                      />
+                      <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
+                        Custom Tone
+                      </label>
+                      <button 
+                        type="button" 
+                        onClick={() => { setIsCustomTone(false); setFormData(prev => ({...prev, tone: Tone.PROFESSIONAL}))}}
+                        className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 bg-white/5 px-2 py-1 rounded-md transition-colors"
+                        title="Select from presets"
+                      >
+                        Presets
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <select 
+                        id="tone" 
+                        name="tone" 
+                        value={formData.tone} 
+                        onChange={(e) => {
+                          if (e.target.value === 'custom') {
+                            setIsCustomTone(true);
+                            setFormData(prev => ({ ...prev, tone: '' }));
+                          } else {
+                            handleChange(e);
+                          }
+                        }} 
+                        className="block px-4 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
+                      >
+                        {Object.values(Tone).map(toneValue => (
+                          <option key={toneValue} value={toneValue} className="bg-gray-800 text-white">{toneValue}</option>
+                        ))}
+                        <option value="custom" className="bg-gray-700 text-blue-300 font-semibold">Custom...</option>
+                      </select>
+                      <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Tone</label>
+                    </>
+                  )}
+                </div>
+
+                {/* Word Count */}
+                <div className="relative">
+                  <input 
+                    type="number" 
+                    id="word_count" 
+                    name="word_count" 
+                    value={formData.word_count} 
+                    onChange={handleChange} 
+                    className="block px-4 pr-10 pb-2.5 pt-5 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors hide-number-spinner"
+                    placeholder=" " 
+                  />
+                  <label htmlFor="word_count" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Word Count</label>
+                  <div className="absolute top-0 right-0 h-full flex flex-col justify-center pr-3">
+                      <button type="button" aria-label="Increase word count" onClick={handleWordCountIncrease} className="h-1/2 flex items-end pb-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
+                          <ChevronUpIcon className="w-4 h-4" />
+                      </button>
+                      <button type="button" aria-label="Decrease word count" onClick={handleWordCountDecrease} className="h-1/2 flex items-start pt-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
+                          <ChevronDownIcon className="w-4 h-4" />
+                      </button>
+                  </div>
+                </div>
+
+                {/* Toggles Container */}
+                <div className="flex flex-col gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                      {/* SEO Checkbox */}
+                      <div className="flex items-center justify-center bg-white/5 rounded-lg border border-white/20 p-4">
+                      <label htmlFor="include_seo" className="flex items-center cursor-pointer group">
+                          <div className="relative">
+                          <input type="checkbox" id="include_seo" name="include_seo" checked={formData.include_seo} onChange={handleChange} className="sr-only peer" />
+                          <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-blue-500 transition-colors duration-300 ease-in-out"></div>
+                          <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
+                              <MagnifyingGlassIcon className="w-4 h-4 text-gray-700 peer-checked:text-blue-500 transition-colors" />
+                          </div>
+                          </div>
+                          <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">SEO</span>
+                      </label>
+                      </div>
+                      {/* HackerNews Checkbox */}
+                      <div className="flex items-center justify-center bg-white/5 rounded-lg border border-white/20 p-4">
+                      <label htmlFor="is_hackernews" className="flex items-center cursor-pointer group">
+                          <div className="relative">
+                          <input type="checkbox" id="is_hackernews" name="is_hackernews" checked={formData.is_hackernews} onChange={handleChange} className="sr-only peer" />
+                          <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-orange-500 transition-colors duration-300 ease-in-out"></div>
+                          <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
+                              <FireIcon className="w-4 h-4 text-gray-700 peer-checked:text-orange-500 transition-colors" />
+                          </div>
+                          </div>
+                          <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">HackerNews</span>
+                      </label>
+                      </div>
+                  </div>
+                  {/* DuckDuckGo Checkbox */}
+                  <div className="flex items-center justify-center bg-white/5 rounded-lg border border-white/20 p-4">
+                    <label htmlFor="is_duckduckgo" className="flex items-center cursor-pointer group">
+                      <div className="relative">
+                        <input type="checkbox" id="is_duckduckgo" name="is_duckduckgo" checked={formData.is_duckduckgo} onChange={handleChange} className="sr-only peer" />
+                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-red-500 transition-colors duration-300 ease-in-out"></div>
+                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
+                          <img src="/assets/icons8-duckduckgo.svg" alt="DuckDuckGo logo" className="w-4 h-4" />
+                        </div>
+                      </div>
+                      <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">DuckDuckGo</span>
+                    </label>
+                  </div>
+                </div>
+
+              </div>
+              
+              {/* Feedback - Only show after the first generation */}
+              {generationHistory.length > 0 && (
+                  <div className="relative animate-fade-in">
+                      <textarea
+                          name="feedback"
+                          id="feedback"
+                          rows={3}
+                          value={formData.feedback}
+                          onChange={handleChange}
+                          placeholder=" "
+                          className="block px-4 pb-4 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors"
+                      />
+                      <label htmlFor="feedback" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-5 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
+                          Provide feedback for regeneration...
+                      </label>
+                  </div>
+              )}
+
+              {/* Submit Button */}
+              <div className="flex justify-center pt-4">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex items-center justify-center gap-3 w-full md:w-auto bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-bold py-4 px-12 rounded-lg shadow-lg shadow-blue-500/30 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <>
+                      <LoaderIcon className="w-6 h-6 animate-spin" />
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <SparklesIcon className="w-6 h-6" />
+                      <span>{generationHistory.length === 0 ? 'Generate Blog' : 'Regenerate Blog'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              {error && <p className="text-center text-red-400 mt-4">{error}</p>}
+            </form>
+          </div>
+        </>
       )}
     </div>
   );
