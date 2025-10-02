@@ -352,15 +352,15 @@ ${blogData.call_to_action}
       </div>
 
       {/* Tags and Keywords */}
-      <div>
+      <div className="text-center">
         <h3 className="text-lg font-semibold text-gray-400 mb-4">Tags</h3>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
             {blogData.tags.map(tag => <Chip key={tag} text={tag} />)}
         </div>
       </div>
-       <div>
+       <div className="text-center">
         <h3 className="text-lg font-semibold text-gray-400 mb-4">Keywords</h3>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
             {blogData.keywords.map(keyword => <Chip key={keyword} text={keyword} />)}
         </div>
       </div>

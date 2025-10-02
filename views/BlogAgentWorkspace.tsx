@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Tone, Audience, BlogAgentRequest, BlogAgentResponse } from '../types';
-import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, MagnifyingGlassIcon, FireIcon, GoogleIcon } from '../components/IconComponents';
+import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, MagnifyingGlassIcon, FireIcon, GoogleIcon, PlusIcon, LinkIcon, XMarkIcon } from '../components/IconComponents';
 import BlogOutputDisplay from '../components/BlogOutputDisplay';
 
 const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -14,8 +14,10 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     is_hackernews: false,
     is_duckduckgo: false,
     is_google_search: false,
+    urls: [],
     feedback: '',
   });
+  const [currentUrl, setCurrentUrl] = useState('');
   const [isCustomTone, setIsCustomTone] = useState(false);
   const [isCustomAudience, setIsCustomAudience] = useState(false);
   
@@ -117,8 +119,10 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         is_hackernews: false,
         is_duckduckgo: false,
         is_google_search: false,
+        urls: [],
         feedback: '',
     });
+    setCurrentUrl('');
     setGenerationHistory([]);
     setCurrentGenerationIndex(0);
     setError(null);
@@ -139,6 +143,47 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           setCurrentGenerationIndex(currentGenerationIndex + 1);
       }
   };
+
+  const handleAddUrl = () => {
+    let urlToAdd = currentUrl.trim();
+    if (urlToAdd) {
+      // Prepend https:// if no protocol is present to make URL validation more robust
+      if (!/^https?:\/\//i.test(urlToAdd)) {
+        urlToAdd = 'https://' + urlToAdd;
+      }
+
+      try {
+        // Validate URL
+        new URL(urlToAdd);
+        
+        // Add URL if it's not already in the list
+        if (!formData.urls.includes(urlToAdd)) {
+          setFormData(prev => ({ ...prev, urls: [...prev.urls, urlToAdd] }));
+        }
+        
+        setCurrentUrl('');
+      } catch (e) {
+        // If URL is still invalid after prepending protocol, log error.
+        // In a future iteration, we could show a user-facing error message.
+        console.error("Invalid URL provided:", currentUrl);
+      }
+    }
+  };
+
+  const handleRemoveUrl = (indexToRemove: number) => {
+    setFormData(prev => ({
+      ...prev,
+      urls: prev.urls.filter((_, index) => index !== indexToRemove),
+    }));
+  };
+  
+  const handleUrlInputKeydown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddUrl();
+    }
+  }
+
 
   const currentGeneration = generationHistory[currentGenerationIndex];
 
@@ -203,7 +248,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <>
           <div className="fixed bottom-0 left-0 w-full h-2/3 bg-gradient-to-t from-gray-900 via-gray-900/90 to-transparent pointer-events-none z-20" />
           <div ref={formRef} className="relative z-30 flex flex-col items-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 py-6 px-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 py-6">
               {generationHistory.length > 0 ? 'Tweak & Regenerate' : 'Blog Agent'}
             </h1>
             <p className="text-gray-400 text-center mb-12">
@@ -230,185 +275,244 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
               {/* Parameter Controls */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:items-start">
-                {/* Target Audience */}
-                <div className="relative">
-                  {isCustomAudience ? (
-                    <div className="relative">
-                      <input 
-                        type="text" 
-                        id="target_audience" 
-                        name="target_audience" 
-                        value={formData.target_audience} 
-                        onChange={handleChange} 
-                        className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
-                        placeholder=" "
-                        autoFocus
-                      />
-                      <label htmlFor="target_audience" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
-                        Custom Audience
-                      </label>
-                      <button 
-                        type="button" 
-                        onClick={() => { setIsCustomAudience(false); setFormData(prev => ({...prev, target_audience: Audience.GENERAL}))}}
-                        className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 bg-white/5 px-2 py-1 rounded-md transition-colors"
-                        title="Select from presets"
-                      >
-                        Presets
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <select 
-                        id="target_audience" 
-                        name="target_audience" 
-                        value={formData.target_audience} 
-                        onChange={(e) => {
-                          if (e.target.value === 'custom') {
-                            setIsCustomAudience(true);
-                            setFormData(prev => ({ ...prev, target_audience: '' }));
-                          } else {
-                            handleChange(e);
-                          }
-                        }} 
-                        className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
-                      >
-                        {Object.values(Audience).map(audienceValue => (
-                          <option key={audienceValue} value={audienceValue} className="bg-gray-800 text-white">{audienceValue}</option>
-                        ))}
-                        <option value="custom" className="bg-gray-700 text-blue-300 font-semibold">Custom...</option>
-                      </select>
-                      <label htmlFor="target_audience" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Target Audience</label>
-                    </>
-                  )}
-                </div>
-
-                {/* Tone */}
-                <div className="relative">
-                  {isCustomTone ? (
-                    <div className="relative">
-                      <input 
-                        type="text" 
-                        id="tone" 
-                        name="tone" 
-                        value={formData.tone} 
-                        onChange={handleChange} 
-                        className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
-                        placeholder=" "
-                        autoFocus
-                      />
-                      <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
-                        Custom Tone
-                      </label>
-                      <button 
-                        type="button" 
-                        onClick={() => { setIsCustomTone(false); setFormData(prev => ({...prev, tone: Tone.PROFESSIONAL}))}}
-                        className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 bg-white/5 px-2 py-1 rounded-md transition-colors"
-                        title="Select from presets"
-                      >
-                        Presets
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <select 
-                        id="tone" 
-                        name="tone" 
-                        value={formData.tone} 
-                        onChange={(e) => {
-                          if (e.target.value === 'custom') {
-                            setIsCustomTone(true);
-                            setFormData(prev => ({ ...prev, tone: '' }));
-                          } else {
-                            handleChange(e);
-                          }
-                        }} 
-                        className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
-                      >
-                        {Object.values(Tone).map(toneValue => (
-                          <option key={toneValue} value={toneValue} className="bg-gray-800 text-white">{toneValue}</option>
-                        ))}
-                        <option value="custom" className="bg-gray-700 text-blue-300 font-semibold">Custom...</option>
-                      </select>
-                      <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Tone</label>
-                    </>
-                  )}
-                </div>
-
-                {/* Word Count */}
-                <div className="relative">
-                  <input 
-                    type="number" 
-                    id="word_count" 
-                    name="word_count" 
-                    value={formData.word_count} 
-                    onChange={handleChange} 
-                    className="block px-4 pr-10 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors hide-number-spinner"
-                    placeholder=" " 
-                  />
-                  <label htmlFor="word_count" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Word Count</label>
-                  <div className="absolute top-0 right-0 h-full flex flex-col justify-center pr-3">
-                      <button type="button" aria-label="Increase word count" onClick={handleWordCountIncrease} className="h-1/2 flex items-end pb-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
-                          <ChevronUpIcon className="w-4 h-4" />
-                      </button>
-                      <button type="button" aria-label="Decrease word count" onClick={handleWordCountDecrease} className="h-1/2 flex items-start pt-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
-                          <ChevronDownIcon className="w-4 h-4" />
-                      </button>
-                  </div>
-                </div>
-
-                {/* Sources & Optimization */}
-                <fieldset className="bg-white/5 rounded-lg border border-white/20 p-6">
-                  <legend className="px-2 text-lg font-semibold text-gray-400">Sources & Optimization</legend>
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-6 pt-2">
-                    {/* SEO Checkbox */}
-                    <label htmlFor="include_seo" className="flex items-center cursor-pointer group">
+                {/* Left Column */}
+                <div className="space-y-8 flex flex-col">
+                  {/* Target Audience */}
+                  <div className="relative">
+                    {isCustomAudience ? (
                       <div className="relative">
-                        <input type="checkbox" id="include_seo" name="include_seo" checked={formData.include_seo} onChange={handleChange} className="sr-only peer" />
-                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-blue-500 transition-colors duration-300 ease-in-out"></div>
-                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
-                          <MagnifyingGlassIcon className="w-4 h-4 text-gray-700 peer-checked:text-blue-500 transition-colors" />
-                        </div>
+                        <input 
+                          type="text" 
+                          id="target_audience" 
+                          name="target_audience" 
+                          value={formData.target_audience} 
+                          onChange={handleChange} 
+                          className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
+                          placeholder=" "
+                          autoFocus
+                        />
+                        <label htmlFor="target_audience" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
+                          Custom Audience
+                        </label>
+                        <button 
+                          type="button" 
+                          onClick={() => { setIsCustomAudience(false); setFormData(prev => ({...prev, target_audience: Audience.GENERAL}))}}
+                          className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 bg-white/5 px-2 py-1 rounded-md transition-colors"
+                          title="Select from presets"
+                        >
+                          Presets
+                        </button>
                       </div>
-                      <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">SEO</span>
-                    </label>
+                    ) : (
+                      <>
+                        <select 
+                          id="target_audience" 
+                          name="target_audience" 
+                          value={formData.target_audience} 
+                          onChange={(e) => {
+                            if (e.target.value === 'custom') {
+                              setIsCustomAudience(true);
+                              setFormData(prev => ({ ...prev, target_audience: '' }));
+                            } else {
+                              handleChange(e);
+                            }
+                          }} 
+                          className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
+                        >
+                          {Object.values(Audience).map(audienceValue => (
+                            <option key={audienceValue} value={audienceValue} className="bg-gray-800 text-white">{audienceValue}</option>
+                          ))}
+                          <option value="custom" className="bg-gray-700 text-blue-300 font-semibold">Custom...</option>
+                        </select>
+                        <label htmlFor="target_audience" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Target Audience</label>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Tone */}
+                   <div className="relative">
+                    {isCustomTone ? (
+                      <div className="relative">
+                        <input 
+                          type="text" 
+                          id="tone" 
+                          name="tone" 
+                          value={formData.tone} 
+                          onChange={handleChange} 
+                          className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
+                          placeholder=" "
+                          autoFocus
+                        />
+                        <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
+                          Custom Tone
+                        </label>
+                        <button 
+                          type="button" 
+                          onClick={() => { setIsCustomTone(false); setFormData(prev => ({...prev, tone: Tone.PROFESSIONAL}))}}
+                          className="absolute top-1/2 right-3 -translate-y-1/2 text-xs text-blue-300 hover:text-blue-200 bg-white/5 px-2 py-1 rounded-md transition-colors"
+                          title="Select from presets"
+                        >
+                          Presets
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <select 
+                          id="tone" 
+                          name="tone" 
+                          value={formData.tone} 
+                          onChange={(e) => {
+                            if (e.target.value === 'custom') {
+                              setIsCustomTone(true);
+                              setFormData(prev => ({ ...prev, tone: '' }));
+                            } else {
+                              handleChange(e);
+                            }
+                          }} 
+                          className="block px-4 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors bg-transparent"
+                        >
+                          {Object.values(Tone).map(toneValue => (
+                            <option key={toneValue} value={toneValue} className="bg-gray-800 text-white">{toneValue}</option>
+                          ))}
+                          <option value="custom" className="bg-gray-700 text-blue-300 font-semibold">Custom...</option>
+                        </select>
+                        <label htmlFor="tone" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Tone</label>
+                      </>
+                    )}
+                  </div>
 
-                    {/* HackerNews Checkbox */}
-                    <label htmlFor="is_hackernews" className="flex items-center cursor-pointer group">
+                  {/* URL Context */}
+                  <fieldset className="bg-white/5 rounded-lg border border-white/20 p-6 flex flex-col">
+                      <legend className="px-2 text-lg font-semibold text-gray-400">URL Context</legend>
+                      <div className="space-y-4 pt-2">
+                          <div className="relative flex items-center">
+                              <input 
+                                  type="url" 
+                                  id="url_context" 
+                                  value={currentUrl}
+                                  onChange={(e) => setCurrentUrl(e.target.value)}
+                                  onKeyDown={handleUrlInputKeydown}
+                                  className="block pl-4 pr-12 pb-2.5 pt-6 w-full text-lg text-white bg-black/20 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors" 
+                                  placeholder=" "
+                              />
+                              <label htmlFor="url_context" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">
+                                  Add a URL for context...
+                              </label>
+                              <button
+                                  type="button"
+                                  onClick={handleAddUrl}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-blue-600 hover:bg-blue-500 transition-colors disabled:opacity-50"
+                                  aria-label="Add URL"
+                                  disabled={!currentUrl.trim()}
+                              >
+                                  <PlusIcon className="w-5 h-5 text-white" />
+                              </button>
+                          </div>
+
+                          {formData.urls && formData.urls.length > 0 && (
+                              <div className="max-h-48 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                                  {formData.urls.map((url, index) => (
+                                      <div key={index} className="flex items-center justify-between p-3 bg-black/30 rounded-md animate-fade-in">
+                                          <div className="flex items-center gap-3 overflow-hidden">
+                                              <LinkIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-gray-300 truncate hover:text-blue-300 transition-colors" title={url}>
+                                                  {url}
+                                              </a>
+                                          </div>
+                                          <button 
+                                              type="button" 
+                                              onClick={() => handleRemoveUrl(index)}
+                                              className="p-1 rounded-full hover:bg-white/10 transition-colors flex-shrink-0 ml-2"
+                                              aria-label={`Remove ${url}`}
+                                          >
+                                              <XMarkIcon className="w-4 h-4 text-gray-500 hover:text-red-400" />
+                                          </button>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  </fieldset>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-8 flex flex-col">
+                  {/* Word Count */}
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      id="word_count" 
+                      name="word_count" 
+                      value={formData.word_count} 
+                      onChange={handleChange} 
+                      className="block px-4 pr-10 pb-2.5 pt-6 w-full text-lg text-white bg-white/5 rounded-lg border border-white/20 appearance-none focus:outline-none focus:ring-0 focus:border-blue-400 peer transition-colors hide-number-spinner"
+                      placeholder=" " 
+                    />
+                    <label htmlFor="word_count" className="absolute text-lg text-gray-400 duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] left-4 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4">Word Count</label>
+                    <div className="absolute top-0 right-0 h-full flex flex-col justify-center pr-3">
+                        <button type="button" aria-label="Increase word count" onClick={handleWordCountIncrease} className="h-1/2 flex items-end pb-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
+                            <ChevronUpIcon className="w-4 h-4" />
+                        </button>
+                        <button type="button" aria-label="Decrease word count" onClick={handleWordCountDecrease} className="h-1/2 flex items-start pt-1 text-gray-500 hover:text-white transition-colors focus:outline-none">
+                            <ChevronDownIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+                  </div>
+
+                  {/* Sources & Optimization */}
+                  <fieldset className="bg-white/5 rounded-lg border border-white/20 p-6 flex flex-col">
+                    <legend className="px-2 text-lg font-semibold text-gray-400">Sources & Optimization</legend>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-6 pt-2 flex-grow content-around">
+                      {/* SEO Checkbox */}
+                      <label htmlFor="include_seo" className="flex items-center cursor-pointer group">
                         <div className="relative">
-                        <input type="checkbox" id="is_hackernews" name="is_hackernews" checked={formData.is_hackernews} onChange={handleChange} className="sr-only peer" />
-                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-orange-500 transition-colors duration-300 ease-in-out"></div>
-                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
-                            <FireIcon className="w-4 h-4 text-gray-700 peer-checked:text-orange-500 transition-colors" />
+                          <input type="checkbox" id="include_seo" name="include_seo" checked={formData.include_seo} onChange={handleChange} className="sr-only peer" />
+                          <div className="w-12 h-7 bg-gray-700 rounded-full peer-checked:bg-blue-500 transition-colors duration-300 ease-in-out"></div>
+                          <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-5 flex items-center justify-center shadow-md">
+                            <MagnifyingGlassIcon className="w-3.5 h-3.5 text-gray-700 peer-checked:text-blue-500 transition-colors" />
+                          </div>
                         </div>
-                        </div>
-                        <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">HackerNews</span>
-                    </label>
-                    
-                    {/* DuckDuckGo Checkbox */}
-                    <label htmlFor="is_duckduckgo" className="flex items-center cursor-pointer group">
-                      <div className="relative">
-                        <input type="checkbox" id="is_duckduckgo" name="is_duckduckgo" checked={formData.is_duckduckgo} onChange={handleChange} className="sr-only peer" />
-                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-red-500 transition-colors duration-300 ease-in-out"></div>
-                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
-                          <img src="/assets/icons8-duckduckgo.svg" alt="DuckDuckGo logo" className="w-4 h-4" />
-                        </div>
-                      </div>
-                      <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">DuckDuckGo</span>
-                    </label>
+                        <span className="ml-3 text-base text-gray-300 font-semibold group-hover:text-white transition-colors">SEO</span>
+                      </label>
 
-                    {/* Google Search Checkbox */}
-                    <label htmlFor="is_google_search" className="flex items-center cursor-pointer group">
-                      <div className="relative">
-                        <input type="checkbox" id="is_google_search" name="is_google_search" checked={formData.is_google_search} onChange={handleChange} className="sr-only peer" />
-                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-blue-500 transition-colors duration-300 ease-in-out"></div>
-                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md p-0.5">
-                          <GoogleIcon className="w-full h-full" />
+                      {/* HackerNews Checkbox */}
+                      <label htmlFor="is_hackernews" className="flex items-center cursor-pointer group">
+                          <div className="relative">
+                          <input type="checkbox" id="is_hackernews" name="is_hackernews" checked={formData.is_hackernews} onChange={handleChange} className="sr-only peer" />
+                          <div className="w-12 h-7 bg-gray-700 rounded-full peer-checked:bg-orange-500 transition-colors duration-300 ease-in-out"></div>
+                          <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-5 flex items-center justify-center shadow-md">
+                              <FireIcon className="w-3.5 h-3.5 text-gray-700 peer-checked:text-orange-500 transition-colors" />
+                          </div>
+                          </div>
+                          <span className="ml-3 text-base text-gray-300 font-semibold group-hover:text-white transition-colors">HackerNews</span>
+                      </label>
+                      
+                      {/* DuckDuckGo Checkbox */}
+                      <label htmlFor="is_duckduckgo" className="flex items-center cursor-pointer group">
+                        <div className="relative">
+                          <input type="checkbox" id="is_duckduckgo" name="is_duckduckgo" checked={formData.is_duckduckgo} onChange={handleChange} className="sr-only peer" />
+                          <div className="w-12 h-7 bg-gray-700 rounded-full peer-checked:bg-red-500 transition-colors duration-300 ease-in-out"></div>
+                          <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-5 flex items-center justify-center shadow-md">
+                            <img src="/assets/icons8-duckduckgo.svg" alt="DuckDuckGo logo" className="w-3.5 h-3.5" />
+                          </div>
                         </div>
-                      </div>
-                      <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">Google Search</span>
-                    </label>
-                  </div>
-                </fieldset>
+                        <span className="ml-3 text-base text-gray-300 font-semibold group-hover:text-white transition-colors">DuckDuckGo</span>
+                      </label>
+
+                      {/* Google Search Checkbox */}
+                      <label htmlFor="is_google_search" className="flex items-center cursor-pointer group">
+                        <div className="relative">
+                          <input type="checkbox" id="is_google_search" name="is_google_search" checked={formData.is_google_search} onChange={handleChange} className="sr-only peer" />
+                          <div className="w-12 h-7 bg-gray-700 rounded-full peer-checked:bg-blue-500 transition-colors duration-300 ease-in-out"></div>
+                          <div className="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-5 flex items-center justify-center shadow-md p-0.5">
+                            <GoogleIcon className="w-full h-full" />
+                          </div>
+                        </div>
+                        <span className="ml-3 text-base text-gray-300 font-semibold group-hover:text-white transition-colors">Google Search</span>
+                      </label>
+                    </div>
+                  </fieldset>
+                </div>
               </div>
               
               {/* Feedback - Only show after the first generation */}

@@ -88,9 +88,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300 animate-pulse px-4 py-2">
             Agent Studio
           </h1>
-          <p className="text-gray-400 mb-16 text-lg">Unleash creativity and productivity with our suite of AI agents.</p>
+          <p className="text-gray-400 mb-12 text-lg">Unleash creativity and productivity with our suite of AI agents.</p>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12 min-h-[420px]">
+          <div className="flex flex-row flex-wrap items-center justify-center gap-8 mb-12 min-h-[420px]">
             {displayedAgents.map(agent => (
               <AgentCard
                 key={agent.id}
@@ -127,7 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
             </div>
           )}
 
-          <footer className="mt-16 text-center text-gray-600">
+          <footer className="mt-12 text-center text-gray-600">
             <div className="flex items-center justify-center gap-2">
               <BrainCircuitIcon className="w-4 h-4" />
               <p className="text-sm">Crafted with AI precision by Deep</p>
