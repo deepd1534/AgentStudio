@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Tone, Audience, BlogAgentRequest, BlogAgentResponse } from '../types';
-import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, MagnifyingGlassIcon, FireIcon } from '../components/IconComponents';
+import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, MagnifyingGlassIcon, FireIcon, GoogleIcon } from '../components/IconComponents';
 import BlogOutputDisplay from '../components/BlogOutputDisplay';
 
 const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -13,6 +13,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     include_seo: true,
     is_hackernews: false,
     is_duckduckgo: false,
+    is_google_search: false,
     feedback: '',
   });
   const [isCustomTone, setIsCustomTone] = useState(false);
@@ -115,6 +116,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         include_seo: true,
         is_hackernews: false,
         is_duckduckgo: false,
+        is_google_search: false,
         feedback: '',
     });
     setGenerationHistory([]);
@@ -354,38 +356,35 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   </div>
                 </div>
 
-                {/* Toggles Container */}
-                <div className="flex flex-col gap-4">
-                  <div className="grid grid-cols-2 gap-4">
-                      {/* SEO Checkbox */}
-                      <div className="flex items-center justify-center bg-white/5 rounded-lg border border-white/20 p-4">
-                      <label htmlFor="include_seo" className="flex items-center cursor-pointer group">
-                          <div className="relative">
-                          <input type="checkbox" id="include_seo" name="include_seo" checked={formData.include_seo} onChange={handleChange} className="sr-only peer" />
-                          <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-blue-500 transition-colors duration-300 ease-in-out"></div>
-                          <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
-                              <MagnifyingGlassIcon className="w-4 h-4 text-gray-700 peer-checked:text-blue-500 transition-colors" />
-                          </div>
-                          </div>
-                          <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">SEO</span>
-                      </label>
+                {/* Sources & Optimization */}
+                <fieldset className="bg-white/5 rounded-lg border border-white/20 p-6">
+                  <legend className="px-2 text-lg font-semibold text-gray-400">Sources & Optimization</legend>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-6 pt-2">
+                    {/* SEO Checkbox */}
+                    <label htmlFor="include_seo" className="flex items-center cursor-pointer group">
+                      <div className="relative">
+                        <input type="checkbox" id="include_seo" name="include_seo" checked={formData.include_seo} onChange={handleChange} className="sr-only peer" />
+                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-blue-500 transition-colors duration-300 ease-in-out"></div>
+                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
+                          <MagnifyingGlassIcon className="w-4 h-4 text-gray-700 peer-checked:text-blue-500 transition-colors" />
+                        </div>
                       </div>
-                      {/* HackerNews Checkbox */}
-                      <div className="flex items-center justify-center bg-white/5 rounded-lg border border-white/20 p-4">
-                      <label htmlFor="is_hackernews" className="flex items-center cursor-pointer group">
-                          <div className="relative">
-                          <input type="checkbox" id="is_hackernews" name="is_hackernews" checked={formData.is_hackernews} onChange={handleChange} className="sr-only peer" />
-                          <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-orange-500 transition-colors duration-300 ease-in-out"></div>
-                          <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
-                              <FireIcon className="w-4 h-4 text-gray-700 peer-checked:text-orange-500 transition-colors" />
-                          </div>
-                          </div>
-                          <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">HackerNews</span>
-                      </label>
-                      </div>
-                  </div>
-                  {/* DuckDuckGo Checkbox */}
-                  <div className="flex items-center justify-center bg-white/5 rounded-lg border border-white/20 p-4">
+                      <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">SEO</span>
+                    </label>
+
+                    {/* HackerNews Checkbox */}
+                    <label htmlFor="is_hackernews" className="flex items-center cursor-pointer group">
+                        <div className="relative">
+                        <input type="checkbox" id="is_hackernews" name="is_hackernews" checked={formData.is_hackernews} onChange={handleChange} className="sr-only peer" />
+                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-orange-500 transition-colors duration-300 ease-in-out"></div>
+                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md">
+                            <FireIcon className="w-4 h-4 text-gray-700 peer-checked:text-orange-500 transition-colors" />
+                        </div>
+                        </div>
+                        <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">HackerNews</span>
+                    </label>
+                    
+                    {/* DuckDuckGo Checkbox */}
                     <label htmlFor="is_duckduckgo" className="flex items-center cursor-pointer group">
                       <div className="relative">
                         <input type="checkbox" id="is_duckduckgo" name="is_duckduckgo" checked={formData.is_duckduckgo} onChange={handleChange} className="sr-only peer" />
@@ -396,9 +395,20 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                       </div>
                       <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">DuckDuckGo</span>
                     </label>
-                  </div>
-                </div>
 
+                    {/* Google Search Checkbox */}
+                    <label htmlFor="is_google_search" className="flex items-center cursor-pointer group">
+                      <div className="relative">
+                        <input type="checkbox" id="is_google_search" name="is_google_search" checked={formData.is_google_search} onChange={handleChange} className="sr-only peer" />
+                        <div className="w-14 h-8 bg-gray-700 rounded-full peer-checked:bg-blue-500 transition-colors duration-300 ease-in-out"></div>
+                        <div className="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300 ease-in-out peer-checked:translate-x-6 flex items-center justify-center shadow-md p-0.5">
+                          <GoogleIcon className="w-full h-full" />
+                        </div>
+                      </div>
+                      <span className="ml-4 text-lg text-gray-300 font-semibold group-hover:text-white transition-colors">Google Search</span>
+                    </label>
+                  </div>
+                </fieldset>
               </div>
               
               {/* Feedback - Only show after the first generation */}

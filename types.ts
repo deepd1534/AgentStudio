@@ -23,6 +23,7 @@ export interface BlogAgentRequest {
   include_seo: boolean;
   is_hackernews: boolean;
   is_duckduckgo: boolean;
+  is_google_search: boolean;
   feedback: string;
 }
 
