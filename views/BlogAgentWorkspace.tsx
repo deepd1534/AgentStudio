@@ -3,9 +3,22 @@ import { Tone, Audience, BlogAgentRequest, BlogAgentResponse } from '../types';
 import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, MagnifyingGlassIcon, FireIcon, GoogleIcon, PlusIcon, LinkIcon, XMarkIcon } from '../components/IconComponents';
 import BlogOutputDisplay from '../components/BlogOutputDisplay';
 
+interface BlogAgentFormState {
+  content: string;
+  target_audience: string;
+  tone: string;
+  word_count: number;
+  include_seo: boolean;
+  is_hackernews: boolean;
+  is_duckduckgo: boolean;
+  is_google_search: boolean;
+  urls: string[];
+  feedback: string;
+}
+
 const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [sessionId, setSessionId] = useState('');
-  const [formData, setFormData] = useState<Omit<BlogAgentRequest, 'session_id'>>({
+  const [formData, setFormData] = useState<BlogAgentFormState>({
     content: '',
     target_audience: Audience.GENERAL,
     tone: Tone.PROFESSIONAL,
@@ -72,11 +85,17 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     
     const isRegeneration = generationHistory.length > 0;
 
+    const { urls, ...restOfFormData } = formData;
+
     const requestBody: BlogAgentRequest = {
-      ...formData,
+      ...restOfFormData,
       content: isRegeneration ? '' : formData.content,
       session_id: sessionId,
     };
+
+    if (urls && urls.length > 0) {
+      requestBody.url_context = urls;
+    }
 
     console.log('Sending request:', JSON.stringify(requestBody, null, 2));
 

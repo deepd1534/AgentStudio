@@ -24,7 +24,7 @@ export interface BlogAgentRequest {
   is_hackernews: boolean;
   is_duckduckgo: boolean;
   is_google_search: boolean;
-  urls: string[];
+  url_context?: string[];
   feedback: string;
 }
 
