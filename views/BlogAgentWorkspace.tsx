@@ -85,16 +85,21 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     
     const isRegeneration = generationHistory.length > 0;
 
-    const { urls, ...restOfFormData } = formData;
-
     const requestBody: BlogAgentRequest = {
-      ...restOfFormData,
-      content: isRegeneration ? '' : formData.content,
       session_id: sessionId,
+      content: isRegeneration ? '' : formData.content,
+      target_audience: formData.target_audience,
+      tone: formData.tone,
+      word_count: formData.word_count,
+      include_seo: formData.include_seo,
+      is_hackernews: formData.is_hackernews,
+      is_duckduckgo: formData.is_duckduckgo,
+      is_google_search: formData.is_google_search,
+      feedback: formData.feedback,
     };
 
-    if (urls && urls.length > 0) {
-      requestBody.url_context = urls;
+    if (formData.urls && formData.urls.length > 0) {
+      requestBody.url_context = formData.urls;
     }
 
     console.log('Sending request:', JSON.stringify(requestBody, null, 2));
