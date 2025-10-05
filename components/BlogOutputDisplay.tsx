@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BlogContent } from '../types';
 import GlassmorphicCard from './GlassmorphicCard';
 import Accordion from './Accordion';
-import Chip from './Chip';
-import { ClipboardCopyIcon, CheckIcon } from './IconComponents';
+import { ClipboardCopyIcon, CheckIcon, SaveIcon, LoaderIcon } from './IconComponents';
+import Editable from './Editable';
+import EditableTags from './EditableTags';
 
 interface BlogOutputDisplayProps {
   blogData: BlogContent;
@@ -11,365 +12,361 @@ interface BlogOutputDisplayProps {
   generatedAt: string;
 }
 
-// A component to render markdown (bold, lists, links, tables)
-const MarkdownRenderer: React.FC<{ text: string }> = ({ text }) => {
-  // Helper to render inline markdown like bold and links
-  const renderInline = (line: string): React.ReactNode => {
-    // Regex to capture **bold** text and [links](url)
-    const regex = /(\*\*.*?\*\*)|(\[.*?\]\(.*?\))/g;
-    const parts = line.split(regex).filter(Boolean);
+interface BlogSection {
+  title: string;
+  content: string;
+}
 
-    return (
-      <>
-        {parts.map((part, index) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={index} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
-          }
-          const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
-          if (linkMatch) {
-            return <a href={linkMatch[2]} key={index} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{linkMatch[1]}</a>;
-          }
-          return <React.Fragment key={index}>{part}</React.Fragment>;
-        })}
-      </>
-    );
-  };
-
-  const lines = text.split('\n');
-  const elements: React.ReactNode[] = [];
-  let listItems: string[] = [];
-  let tableHeader: string[] | null = null;
-  let tableBody: string[][] = [];
-  
-  const flushList = () => {
-    if (listItems.length > 0) {
-      elements.push(
-        <ul key={`ul-${elements.length}`} className="list-disc list-inside space-y-2 my-4 pl-4">
-          {listItems.map((item, index) => <li key={index}>{renderInline(item)}</li>)}
-        </ul>
-      );
-      listItems = [];
-    }
-  };
-
-  const flushTable = () => {
-    if (tableHeader) {
-       elements.push(
-        <div key={`table-wrapper-${elements.length}`} className="my-6 overflow-x-auto border border-white/10 rounded-lg">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-white/20">
-                {tableHeader.map((cell, i) => (
-                  <th key={i} className="p-4 font-semibold text-blue-300">{renderInline(cell.trim())}</th>
-                ))}
-              </tr>
-            </thead>
-            {tableBody.length > 0 && (
-                <tbody>
-                {tableBody.map((row, i) => (
-                    <tr key={i} className="border-b border-white/10 last:border-b-0">
-                    {row.map((cell, j) => (
-                        <td key={j} className="p-4">{renderInline(cell.trim())}</td>
-                    ))}
-                    </tr>
-                ))}
-                </tbody>
-            )}
-          </table>
-        </div>
-      );
-    }
-    tableHeader = null;
-    tableBody = [];
-  };
-
-  lines.forEach((line, index) => {
-    const trimmedLine = line.trim();
-    
-    // Table rows
-    if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
-      flushList();
-      const cells = trimmedLine.slice(1, -1).split('|');
-      
-      // Separator line
-      if (cells.every(cell => /^\s*:?-{3,}:?\s*$/.test(cell))) {
-        return;
-      }
-
-      if (!tableHeader) {
-        tableHeader = cells;
-      } else {
-        tableBody.push(cells);
-      }
-    } else if (trimmedLine.startsWith('* ')) { // List items
-      flushTable();
-      listItems.push(trimmedLine.substring(2));
-    } else { // Paragraphs
-      flushList();
-      flushTable();
-      if (trimmedLine && trimmedLine !== '#') {
-        elements.push(<p key={index} className="mb-4">{renderInline(trimmedLine)}</p>);
-      }
-    }
-  });
-  
-  flushList();
-  flushTable();
-
-  return <div className="text-gray-300 leading-relaxed">{elements}</div>;
-};
-
-
-// Helper to parse the main content into sections based on headings
-const createSections = (content: string, headings: string[]): { title: string; content: string }[] => {
+const createSections = (content: string, headings: string[]): BlogSection[] => {
     if (!content.trim() || !headings || headings.length === 0) {
         return [];
     }
-
-    const sections: { title: string; content: string }[] = [];
-
-    for (let i = 0; i < headings.length; i++) {
-        const currentHeading = headings[i];
+    return headings.map((heading, i) => {
         const nextHeading = i + 1 < headings.length ? headings[i + 1] : null;
+        const startMarker = `## ${heading}`;
+        let startIndex = content.indexOf(startMarker);
+        if (startIndex === -1) return { title: heading, content: '' };
 
-        const startMarker = `## ${currentHeading}`;
-        const startIndex = content.indexOf(startMarker);
-
-        if (startIndex === -1) continue;
-
+        startIndex += startMarker.length;
+        
         let endIndex;
         if (nextHeading) {
-            const nextMarker = `## ${nextHeading}`;
-            endIndex = content.indexOf(nextMarker, startIndex + startMarker.length);
+            endIndex = content.indexOf(`## ${nextHeading}`, startIndex);
         }
-        
-        if (endIndex === -1 || !nextHeading) {
-            endIndex = content.length;
-        }
+        endIndex = (endIndex === -1 || !nextHeading) ? content.length : endIndex;
 
-        const sectionContent = content.substring(startIndex + startMarker.length, endIndex).trim();
-
-        sections.push({
-            title: currentHeading,
-            content: sectionContent,
-        });
-    }
-
-    return sections;
+        return { title: heading, content: content.substring(startIndex, endIndex).trim() };
+    });
 };
 
-const markdownToHtml = (markdown: string): string => {
-  if (!markdown) return '';
-  const lines = markdown.split('\n');
-  let html = '';
-  let inList = false;
+const markdownToHtml = (text: string): string => {
+  if (!text) return '';
 
-  const processLine = (line: string) => line.trim().replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Bold and Italic
+  html = html
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+  // Citations
+  html = html.replace(/\[cite:(.*?)\]/g, '<span class="text-xs text-gray-500 align-super">[cite:$1]</span>');
+  
+  const lines = html.split('\n');
+  let inList = false;
+  let result = '';
 
   lines.forEach(line => {
-    if (line.trim().startsWith('* ')) {
-      const content = processLine(line.trim().substring(2));
+    line = line.trim();
+    if (line.startsWith('* ')) {
       if (!inList) {
-        html += '<ul>';
+        result += '<ul>';
         inList = true;
       }
-      html += `<li>${content}</li>`;
+      result += `<li>${line.substring(2)}</li>`;
     } else {
       if (inList) {
-        html += '</ul>';
+        result += '</ul>';
         inList = false;
       }
-      const processedLine = processLine(line);
-      if (processedLine) {
-        html += `<p>${processedLine}</p>`;
+      if (line) {
+        result += `<p>${line}</p>`;
       }
     }
   });
 
   if (inList) {
-    html += '</ul>';
+    result += '</ul>';
   }
-  return html;
+
+  return result;
 };
 
+const htmlToMarkdown = (html: string): string => {
+  if (!html) return '';
+  let markdown = html;
+
+  // Block elements
+  markdown = markdown.replace(/<p>(.*?)<\/p>/gi, '$1\n\n');
+  markdown = markdown.replace(/<br\s*\/?>/gi, '\n');
+  markdown = markdown.replace(/<ul>/gi, '');
+  markdown = markdown.replace(/<\/ul>/gi, '');
+  markdown = markdown.replace(/<li>(.*?)<\/li>/gi, '* $1\n');
+
+  // Inline elements
+  markdown = markdown.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
+  markdown = markdown.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+  markdown = markdown.replace(/<em>(.*?)<\/em>/gi, '*$1*');
+  markdown = markdown.replace(/<i>(.*?)<\/i>/gi, '*$1*');
+  
+  // Strip remaining HTML tags
+  markdown = markdown.replace(/<[^>]*>?/gm, '');
+
+  // Clean up whitespace and entities
+  markdown = markdown.replace(/&nbsp;/g, ' ');
+  markdown = markdown.replace(/&amp;/g, '&');
+  markdown = markdown.replace(/&lt;/g, '<');
+  markdown = markdown.replace(/&gt;/g, '>');
+
+  return markdown.trim();
+};
 
 const BlogOutputDisplay: React.FC<BlogOutputDisplayProps> = ({ blogData, traceId, generatedAt }) => {
+  const [editableData, setEditableData] = useState<BlogContent>(blogData);
+  const [editableSections, setEditableSections] = useState<BlogSection[]>([]);
+  
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSaveToast, setShowSaveToast] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const blogSections = React.useMemo(() => createSections(blogData.content, blogData.headings), [blogData.content, blogData.headings]);
+
+  useEffect(() => {
+    setEditableData({
+      ...blogData,
+      meta_description: markdownToHtml(blogData.meta_description),
+      introduction: markdownToHtml(blogData.introduction),
+      conclusion: markdownToHtml(blogData.conclusion),
+      call_to_action: markdownToHtml(blogData.call_to_action),
+    });
+    
+    setEditableSections(createSections(blogData.content, blogData.headings).map(section => ({
+        title: section.title,
+        content: markdownToHtml(section.content)
+    })));
+
+    setIsDirty(false);
+    setIsSaving(false);
+  }, [blogData]);
+  
+  const handleDirty = useCallback(() => setIsDirty(true), []);
+
+  const handleFieldChange = (field: keyof BlogContent, value: string | string[]) => {
+    setEditableData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSectionTitleChange = (index: number, newTitle: string) => {
+    const newHeadings = [...editableData.headings];
+    newHeadings[index] = newTitle;
+    setEditableData(prev => ({...prev, headings: newHeadings}));
+    
+    const newSections = [...editableSections];
+    newSections[index].title = newTitle;
+    setEditableSections(newSections);
+  };
+
+  const handleSectionContentChange = (index: number, newContent: string) => {
+    const newSections = [...editableSections];
+    newSections[index].content = newContent;
+    setEditableSections(newSections);
+  };
+  
+  const handleSave = async () => {
+    setIsSaving(true);
+    
+    const cleanHeadings = editableData.headings.map(h => h.replace(/<[^>]*>?/gm, ''));
+
+    let fullContent = '';
+    cleanHeadings.forEach((heading, index) => {
+      if (editableSections[index]) {
+        const sectionContent = htmlToMarkdown(editableSections[index].content);
+        fullContent += `## ${heading}\n\n${sectionContent}\n\n`;
+      }
+    });
+
+    const finalData: BlogContent = {
+      ...editableData,
+      title: editableData.title.replace(/<[^>]*>?/gm, ''),
+      subtitle: editableData.subtitle.replace(/<[^>]*>?/gm, ''),
+      meta_description: htmlToMarkdown(editableData.meta_description),
+      introduction: htmlToMarkdown(editableData.introduction),
+      headings: cleanHeadings,
+      content: fullContent.trim(),
+      conclusion: htmlToMarkdown(editableData.conclusion),
+      call_to_action: htmlToMarkdown(editableData.call_to_action),
+      reading_time: editableData.reading_time.replace(/<[^>]*>?/gm, ''),
+    };
+    
+    // Mock API call
+    console.log("Saving data:", JSON.stringify(finalData, null, 2));
+    await new Promise(resolve => setTimeout(resolve, 1500)); 
+
+    setIsSaving(false);
+    setIsDirty(false);
+    setShowSaveToast(true);
+    setTimeout(() => setShowSaveToast(false), 3000);
+  };
 
   const handleCopy = async () => {
+    const sectionsPlainText = editableSections.map(s => 
+        `## ${s.title.replace(/<[^>]*>?/gm, '')}\n\n${htmlToMarkdown(s.content)}`
+    ).join('\n\n');
+
     const plainText = `
-# ${blogData.title}
-## ${blogData.subtitle}
+# ${editableData.title.replace(/<[^>]*>?/gm, '')}
+${editableData.subtitle.replace(/<[^>]*>?/gm, '')}
 
-**Reading Time:** ${blogData.reading_time}
+Reading Time: ${editableData.reading_time.replace(/<[^>]*>?/gm, '')}
 
----
+## Introduction
+${htmlToMarkdown(editableData.introduction)}
 
-### Meta Description
-${blogData.meta_description}
+${sectionsPlainText}
 
-### Introduction
-${blogData.introduction}
+## Conclusion
+${htmlToMarkdown(editableData.conclusion)}
 
----
-
-${blogSections.map(section => `## ${section.title}\n\n${section.content}`).join('\n\n---\n\n')}
-
----
-
-### Conclusion
-${blogData.conclusion}
-
-### Call to Action
-${blogData.call_to_action}
+## Call to Action
+${htmlToMarkdown(editableData.call_to_action)}
 
 ---
-**Tags:** ${blogData.tags.join(', ')}
-**Keywords:** ${blogData.keywords.join(', ')}
-    `.trim().replace(/(\n){3,}/g, '\n\n');
+**Tags:** ${editableData.tags.join(', ')}
+**Keywords:** ${editableData.keywords.join(', ')}
+    `.trim();
 
     const htmlString = `
-        <h1>${blogData.title}</h1>
-        <h2>${blogData.subtitle}</h2>
-        <p><em>Reading Time: ${blogData.reading_time}</em></p>
-        <hr />
-        <h3>Meta Description</h3>
-        <p>${blogData.meta_description}</p>
-        <h3>Introduction</h3>
-        <p>${blogData.introduction}</p>
-        <hr />
-        ${blogSections.map(section => `<h2>${section.title}</h2>${markdownToHtml(section.content)}`).join('\n')}
-        <hr />
-        <h3>Conclusion</h3>
-        <p>${blogData.conclusion}</p>
-        <h3>Call to Action</h3>
-        <p>${blogData.call_to_action}</p>
-        <hr />
-        <p><strong>Tags:</strong> ${blogData.tags.join(', ')}</p>
-        <p><strong>Keywords:</strong> ${blogData.keywords.join(', ')}</p>
+        <h1>${editableData.title}</h1>
+        <h2>${editableData.subtitle}</h2>
+        <p><em>Reading Time: ${editableData.reading_time}</em></p>
+        <h3>Introduction</h3><div>${editableData.introduction}</div>
+        ${editableSections.map(s => `<h2>${s.title}</h2><div>${s.content}</div>`).join('')}
+        <h3>Conclusion</h3><div>${editableData.conclusion}</div>
+        <h3>Call to Action</h3><div>${editableData.call_to_action}</div>
+        <p><strong>Tags:</strong> ${editableData.tags.join(', ')}</p>
+        <p><strong>Keywords:</strong> ${editableData.keywords.join(', ')}</p>
     `;
 
     try {
-        if (!navigator.clipboard.write) {
-            throw new Error("Clipboard API 'write' not supported. Falling back to plain text.");
-        }
-        const htmlBlob = new Blob([htmlString], { type: 'text/html' });
-        const textBlob = new Blob([plainText], { type: 'text/plain' });
-        const clipboardItem = new ClipboardItem({
-            'text/html': htmlBlob,
-            'text/plain': textBlob,
-        });
-        await navigator.clipboard.write([clipboardItem]);
-        
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'text/html': new Blob([htmlString], { type: 'text/html' }),
+                'text/plain': new Blob([plainText], { type: 'text/plain' }),
+            })
+        ]);
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2500);
-
     } catch (err) {
-        console.warn("Rich text copy failed, falling back to plain text:", err);
-        navigator.clipboard.writeText(plainText).then(() => {
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2500);
-        }).catch(copyErr => {
-            console.error("Failed to copy plain text:", copyErr);
-        });
+        console.error("Failed to copy content:", err);
     }
   };
 
+  const SaveStatusHeader = () => (
+    <div className="sticky top-4 z-40 w-full flex justify-center mb-6">
+        <div className="flex items-center justify-between gap-6 p-3 rounded-xl bg-gray-900/50 backdrop-blur-lg border border-white/10 shadow-2xl">
+            <div className="flex items-center gap-3 text-gray-300 font-semibold text-sm">
+                {isSaving ? (
+                    <>
+                        <LoaderIcon className="w-5 h-5 animate-spin text-blue-400" />
+                        <span>Saving...</span>
+                    </>
+                ) : isDirty ? (
+                    <>
+                        <div className="w-3 h-3 bg-yellow-400 rounded-full animate-blink" />
+                        <span>Unsaved changes</span>
+                    </>
+                ) : (
+                    <>
+                        <div className="w-3 h-3 bg-green-500 rounded-full" />
+                        <span>Saved</span>
+                    </>
+                )}
+            </div>
+            <div className="flex items-center gap-2">
+                 <button onClick={handleSave} disabled={!isDirty || isSaving} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-md hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <SaveIcon className="w-5 h-5" />
+                    <span>Save</span>
+                </button>
+                <button 
+                    onClick={handleCopy} 
+                    title={isCopied ? "Copied!" : "Copy Content"}
+                    className="flex items-center justify-center p-2.5 rounded-md bg-white/10 hover:bg-white/20 transition-all"
+                >
+                    {isCopied ? <CheckIcon className="w-5 h-5 text-green-400" /> : <ClipboardCopyIcon className="w-5 h-5 text-gray-300" />}
+                </button>
+            </div>
+        </div>
+    </div>
+  );
+
   return (
     <div className="relative space-y-8 animate-fade-in">
-      <div className="flex justify-end">
-        <button 
-            onClick={handleCopy} 
-            title={isCopied ? "Copied!" : "Copy Content"}
-            className="flex items-center gap-2 p-2 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-200"
-        >
-            {isCopied ? (
-                <>
-                    <CheckIcon className="w-5 h-5 text-green-400" />
-                    <span className="text-sm text-green-300 pr-1">Copied!</span>
-                </>
-            ) : (
-                <ClipboardCopyIcon className="w-5 h-5 text-gray-300" />
-            )}
-        </button>
-      </div>
+        <SaveStatusHeader />
 
-      {/* Header */}
       <header className="text-center">
-        <h1 className="text-4xl md:text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-cyan-200 mb-2">
-          {blogData.title}
-        </h1>
-        <p className="text-xl md:text-2xl text-gray-400">{blogData.subtitle}</p>
+        <Editable as="h1" html={editableData.title} onChange={(val) => handleFieldChange('title', val)} onDirty={handleDirty} className="text-4xl md:text-6xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-cyan-200 mb-2 focus:caret-white" />
+        <Editable as="p" html={editableData.subtitle} onChange={(val) => handleFieldChange('subtitle', val)} onDirty={handleDirty} className="text-xl md:text-2xl text-gray-400" />
       </header>
       
       <div className="flex justify-center">
-        <div className="px-4 py-2 text-sm font-semibold text-cyan-200 bg-cyan-500/10 border border-cyan-500/30 rounded-full">
-            {blogData.reading_time}
-        </div>
+        <Editable as="div" html={editableData.reading_time} onChange={(val) => handleFieldChange('reading_time', val)} onDirty={handleDirty} className="px-4 py-2 text-sm font-semibold text-cyan-200 bg-cyan-500/10 border border-cyan-500/30 rounded-full" />
       </div>
 
-      {/* Intro */}
       <GlassmorphicCard>
         <div className="p-6">
             <h3 className="text-lg font-semibold text-blue-300 mb-2">Meta Description</h3>
-            <p className="text-gray-400 italic mb-4">{blogData.meta_description}</p>
+            <Editable as="p" html={editableData.meta_description} onChange={(val) => handleFieldChange('meta_description', val)} onDirty={handleDirty} className="text-gray-400 italic mb-4" />
             <div className="w-full h-[1px] bg-white/10 my-4"></div>
             <h3 className="text-lg font-semibold text-blue-300 mb-2">Introduction</h3>
-            <p className="text-gray-300 leading-relaxed">{blogData.introduction}</p>
+            <Editable html={editableData.introduction} onChange={(val) => handleFieldChange('introduction', val)} onDirty={handleDirty} className="text-gray-300 leading-relaxed" />
         </div>
       </GlassmorphicCard>
 
-      {/* Accordion Sections */}
-      {blogSections.length > 0 ? (
-        <div className="space-y-4">
-          {blogSections.map((section, index) => (
-            <Accordion key={index} title={section.title}>
-              <MarkdownRenderer text={section.content} />
-            </Accordion>
-          ))}
-        </div>
-      ) : (
-         /* Fallback to show full content if parsing fails or no headings are present */
-         <GlassmorphicCard>
-            <div className="p-6">
-                <h2 className="text-2xl font-bold text-blue-300 mb-4">Content</h2>
-                <MarkdownRenderer text={blogData.content} />
-            </div>
-          </GlassmorphicCard>
-      )}
+      <div className="space-y-4">
+        {editableSections.map((section, index) => (
+          <Accordion 
+            key={index} 
+            title={
+              <Editable
+                as="span"
+                html={section.title}
+                onChange={(val) => handleSectionTitleChange(index, val)}
+                onDirty={handleDirty}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              />
+            }
+          >
+            <Editable html={section.content} onChange={(val) => handleSectionContentChange(index, val)} onDirty={handleDirty} className="text-gray-300 leading-relaxed" />
+          </Accordion>
+        ))}
+      </div>
 
-      {/* Conclusion & CTA */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="p-6 bg-gradient-to-br from-gray-800 to-gray-900 border border-white/10 rounded-xl">
              <h3 className="text-xl font-bold text-blue-300 mb-3">Conclusion</h3>
-             <p className="text-gray-300 leading-relaxed">{blogData.conclusion}</p>
+             <Editable html={editableData.conclusion} onChange={(val) => handleFieldChange('conclusion', val)} onDirty={handleDirty} className="text-gray-300 leading-relaxed" />
         </div>
          <div className="p-6 bg-gradient-to-br from-blue-900/50 to-cyan-900/50 border border-blue-500/30 rounded-xl">
              <h3 className="text-xl font-bold text-cyan-300 mb-3">Call to Action</h3>
-             <p className="text-cyan-100 leading-relaxed">{blogData.call_to_action}</p>
+             <Editable html={editableData.call_to_action} onChange={(val) => handleFieldChange('call_to_action', val)} onDirty={handleDirty} className="text-cyan-100 leading-relaxed" />
         </div>
       </div>
 
-      {/* Tags and Keywords */}
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-gray-400 mb-4">Tags</h3>
-        <div className="flex flex-wrap justify-center gap-3">
-            {blogData.tags.map(tag => <Chip key={tag} text={tag} />)}
+      <GlassmorphicCard>
+        <div className="p-6 space-y-6">
+            <div>
+                <h3 className="text-lg font-semibold text-gray-400 mb-4">Tags</h3>
+                <EditableTags items={editableData.tags} onChange={(val) => handleFieldChange('tags', val as string[])} onDirty={handleDirty} />
+            </div>
+            <div>
+                <h3 className="text-lg font-semibold text-gray-400 mb-4">Keywords</h3>
+                <EditableTags items={editableData.keywords} onChange={(val) => handleFieldChange('keywords', val as string[])} onDirty={handleDirty} />
+            </div>
         </div>
-      </div>
-       <div className="text-center">
-        <h3 className="text-lg font-semibold text-gray-400 mb-4">Keywords</h3>
-        <div className="flex flex-wrap justify-center gap-3">
-            {blogData.keywords.map(keyword => <Chip key={keyword} text={keyword} />)}
-        </div>
-      </div>
+      </GlassmorphicCard>
 
-      {/* Footer */}
       <footer className="text-center text-xs text-gray-600 pt-8">
         <p>Trace ID: {traceId}</p>
         <p>Generated At: {new Date(generatedAt).toLocaleString()}</p>
       </footer>
+      
+      {showSaveToast && (
+        <div className="fixed bottom-8 right-8 z-50 flex items-center gap-3 bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-green-500/30 animate-fade-in">
+            <CheckIcon className="w-5 h-5" />
+            <span>Saved successfully!</span>
+        </div>
+      )}
     </div>
   );
 };

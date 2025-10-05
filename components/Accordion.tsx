@@ -2,7 +2,7 @@ import React, { useState, ReactNode } from 'react';
 import { ChevronDownIcon } from './IconComponents';
 
 interface AccordionProps {
-  title: string;
+  title: ReactNode;
   children: ReactNode;
 }
 
@@ -15,9 +15,9 @@ const Accordion: React.FC<AccordionProps> = ({ title, children }) => {
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex justify-between items-center p-5 text-left font-semibold text-lg text-white"
       >
-        <span>{title}</span>
+        <div className="flex-grow mr-4">{title}</div>
         <ChevronDownIcon
-          className={`w-6 h-6 transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-6 h-6 transform transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
       <div

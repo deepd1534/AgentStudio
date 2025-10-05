@@ -187,9 +187,6 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       }
 
       try {
-        // Validate URL
-        new URL(urlToAdd);
-        
         // Add URL if it's not already in the list
         if (!formData.urls.includes(urlToAdd)) {
           setFormData(prev => ({ ...prev, urls: [...prev.urls, urlToAdd] }));
