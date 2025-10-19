@@ -47,3 +47,17 @@ export interface BlogAgentResponse {
   traceId: string;
   generated_at: string;
 }
+
+export enum BlogStatus {
+  DRAFT = 'Draft',
+  PUBLISHED = 'Published',
+  IN_REVIEW = 'In Review',
+}
+
+export interface SavedBlog {
+  id: string;
+  title: string;
+  lastEdited: string;
+  summary: string;
+  status: BlogStatus;
+}

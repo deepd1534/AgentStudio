@@ -3,8 +3,9 @@ import ParticleBackground from './components/ParticleBackground';
 import CosmosBackground from './components/CosmosBackground';
 import Dashboard from './views/Dashboard';
 import BlogAgentWorkspace from './views/BlogAgentWorkspace';
+import SavedBlogs from './views/SavedBlogs';
 
-type View = 'dashboard' | 'blogAgent';
+type View = 'dashboard' | 'blogAgent' | 'savedBlogs';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -32,13 +33,18 @@ const App: React.FC = () => {
     switchView('dashboard');
   };
 
+  const handleGoToSavedBlogs = () => {
+    switchView('savedBlogs');
+  };
+
   return (
     <div className="relative min-h-screen w-full bg-gray-900 text-white overflow-hidden">
       <CosmosBackground />
       <ParticleBackground />
       <div className={`relative z-10 ${animationClass}`}>
         {currentView === 'dashboard' && <Dashboard onSelectAgent={handleSelectAgent} />}
-        {currentView === 'blogAgent' && <BlogAgentWorkspace onBack={handleBackToDashboard} />}
+        {currentView === 'blogAgent' && <BlogAgentWorkspace onBack={handleBackToDashboard} onGoToSaved={handleGoToSavedBlogs} />}
+        {currentView === 'savedBlogs' && <SavedBlogs onBack={() => switchView('blogAgent')} />}
       </div>
     </div>
   );

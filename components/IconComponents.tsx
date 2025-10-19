@@ -170,3 +170,9 @@ export const SaveIcon: React.FC<IconProps> = (props) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 3.75H6.375c-1.036 0-1.875.84-1.875 1.875v13.5c0 1.036.84 1.875 1.875 1.875h11.25c1.036 0 1.875-.84 1.875-1.875V9.75M9 3.75V9.375m0-5.625A2.625 2.625 0 0111.625 1.5h.75A2.625 2.625 0 0115 3.75v5.625m0 0V3.75m0 5.625A2.625 2.625 0 0112.375 12h-.75A2.625 2.625 0 019 9.375" />
     </svg>
 );
+
+export const BookmarkIcon: React.FC<IconProps> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.5 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+    </svg>
+);

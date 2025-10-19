@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Tone, Audience, BlogAgentRequest, BlogAgentResponse } from '../types';
-import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, MagnifyingGlassIcon, FireIcon, GoogleIcon, PlusIcon, LinkIcon, XMarkIcon } from '../components/IconComponents';
+import { ArrowLeftIcon, SparklesIcon, EditIcon, LoaderIcon, PlusCircleIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, MagnifyingGlassIcon, FireIcon, GoogleIcon, PlusIcon, LinkIcon, XMarkIcon, BookmarkIcon } from '../components/IconComponents';
 import BlogOutputDisplay from '../components/BlogOutputDisplay';
 
 interface BlogAgentFormState {
@@ -16,7 +16,7 @@ interface BlogAgentFormState {
   feedback: string;
 }
 
-const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const BlogAgentWorkspace: React.FC<{ onBack: () => void; onGoToSaved: () => void; }> = ({ onBack, onGoToSaved }) => {
   const [sessionId, setSessionId] = useState('');
   const [formData, setFormData] = useState<BlogAgentFormState>({
     content: '',
@@ -225,10 +225,16 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <ArrowLeftIcon className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             Back to Studio
         </button>
-        <button onClick={handleNewSession} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
-            <PlusCircleIcon className="w-6 h-6" />
-            New Session
-        </button>
+        <div className="flex items-center gap-6">
+          <button onClick={onGoToSaved} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+            <BookmarkIcon className="w-6 h-6" />
+            Saved Blogs
+          </button>
+          <button onClick={handleNewSession} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+              <PlusCircleIcon className="w-6 h-6" />
+              New Session
+          </button>
+        </div>
       </div>
 
       {currentGeneration && (
