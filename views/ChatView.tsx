@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeftIcon, PaperAirplaneIcon, BotIcon, UserIcon, BrainCircuitIcon } from '../components/IconComponents';
+import { ArrowLeftIcon, PaperAirplaneIcon, BotIcon, BrainCircuitIcon } from '../components/IconComponents';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar';
 
 interface Message {
   id: string;
@@ -93,9 +94,10 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
 
                 {msg.sender === 'user' && (
-                  <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10">
-                    <UserIcon className="w-6 h-6 text-gray-300" />
-                  </div>
+                  <Avatar>
+                    <AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" />
+                    <AvatarFallback>U</AvatarFallback>
+                  </Avatar>
                 )}
               </div>
             ))}
