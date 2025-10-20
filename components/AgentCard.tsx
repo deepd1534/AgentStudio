@@ -40,7 +40,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ name, description, icon, onClick,
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={!disabled ? onClick : undefined}
-      className={`group w-80 h-96 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl shadow-blue-500/10 transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-blue-400/40'}`}
+      className={`group w-full h-96 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl shadow-blue-500/10 transition-all duration-300 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-blue-400/40'}`}
       style={{ transformStyle: 'preserve-3d' }}
     >
       <div className="p-8 flex flex-col items-center justify-center h-full" style={{ transform: 'translateZ(40px)' }}>
