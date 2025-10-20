@@ -9,7 +9,8 @@ import {
   AcademicCapIcon,
   PhotoIcon,
   MusicNoteIcon,
-  BrainCircuitIcon
+  BrainCircuitIcon,
+  SparklesIcon
 } from '../components/IconComponents';
 
 interface DashboardProps {
@@ -90,6 +91,21 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
           </h1>
           <p className="text-gray-400 mb-12 text-lg">Unleash creativity and productivity with our suite of AI agents.</p>
           
+          <div 
+            onClick={() => onSelectAgent('chat')}
+            className="group w-full max-w-4xl mb-16 p-8 rounded-2xl bg-gradient-to-tr from-blue-900/40 to-cyan-800/20 backdrop-blur-md border border-white/10 shadow-2xl shadow-blue-500/20 transition-all duration-300 cursor-pointer hover:shadow-cyan-400/30 hover:border-cyan-400/50 hover:-translate-y-2"
+          >
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="p-4 bg-white/10 rounded-full">
+                <SparklesIcon className="w-16 h-16 text-cyan-200 group-hover:animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-300 mb-2">Chat</h2>
+                <p className="text-gray-400 text-lg">The foundational AI. Engage in a direct, creative conversation.</p>
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-row flex-wrap items-center justify-center gap-8 mb-12 min-h-[420px]">
             {displayedAgents.map(agent => (
               <AgentCard

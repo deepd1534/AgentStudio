@@ -4,8 +4,9 @@ import CosmosBackground from './components/CosmosBackground';
 import Dashboard from './views/Dashboard';
 import BlogAgentWorkspace from './views/BlogAgentWorkspace';
 import SavedBlogs from './views/SavedBlogs';
+import ChatView from './views/ChatView';
 
-type View = 'dashboard' | 'blogAgent' | 'savedBlogs';
+type View = 'dashboard' | 'blogAgent' | 'savedBlogs' | 'chat';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -27,6 +28,9 @@ const App: React.FC = () => {
     if (agent === 'blogAgent') {
       switchView('blogAgent');
     }
+    if (agent === 'chat') {
+      switchView('chat');
+    }
   };
 
   const handleBackToDashboard = () => {
@@ -45,6 +49,7 @@ const App: React.FC = () => {
         {currentView === 'dashboard' && <Dashboard onSelectAgent={handleSelectAgent} />}
         {currentView === 'blogAgent' && <BlogAgentWorkspace onBack={handleBackToDashboard} onGoToSaved={handleGoToSavedBlogs} />}
         {currentView === 'savedBlogs' && <SavedBlogs onBack={() => switchView('blogAgent')} />}
+        {currentView === 'chat' && <ChatView onBack={handleBackToDashboard} />}
       </div>
     </div>
   );
