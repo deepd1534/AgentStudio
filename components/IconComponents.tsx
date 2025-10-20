@@ -185,7 +185,12 @@ export const PaperAirplaneIcon: React.FC<IconProps> = (props) => (
 
 export const BotIcon: React.FC<IconProps> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.658-.463 1.243-1.119 1.243H5.502c-.656 0-1.189-.585-1.119-1.243l1.263-12A1.875 1.875 0 016.994 6.75h10.012a1.875 1.875 0 011.85 1.757z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 6.75a2.25 2.25 0 012.25-2.25h7.5a2.25 2.25 0 012.25 2.25v7.5a2.25 2.25 0 01-2.25 2.25h-7.5a2.25 2.25 0 01-2.25-2.25v-7.5z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9h.01" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 9h.01" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h.75" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h.75" />
   </svg>
 );
 
