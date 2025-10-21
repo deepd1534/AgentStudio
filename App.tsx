@@ -9,7 +9,7 @@ import ChatView from './views/ChatView';
 type View = 'dashboard' | 'blogAgent' | 'savedBlogs' | 'chat';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [currentView, setCurrentView] = useState<View>('chat');
   const [animationClass, setAnimationClass] = useState('animate-fade-in');
 
   const switchView = (view: View) => {
