@@ -8,7 +8,7 @@ import {
   PhotoIcon,
   MusicNoteIcon,
   BrainCircuitIcon,
-  SparklesIcon
+  ChatAgentIcon
 } from '../components/IconComponents';
 
 interface DashboardProps {
@@ -20,7 +20,7 @@ const allAgents = [
     id: 'chat',
     name: 'Chat',
     description: 'Engage in a direct, creative conversation.',
-    icon: <SparklesIcon className="w-16 h-16 text-cyan-200" />,
+    icon: <ChatAgentIcon className="w-16 h-16 text-cyan-200" />,
     disabled: false,
   },
   {

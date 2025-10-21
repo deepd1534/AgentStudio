@@ -4,13 +4,12 @@ type IconProps = React.SVGProps<SVGSVGElement>;
 
 export const BrainCircuitIcon: React.FC<IconProps> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M12 2a10 10 0 0 0-10 10c0 1.68.41 3.28 1.13 4.69" />
-    <path d="M12 2a10 10 0 0 1 10 10c0 1.68-.41 3.28-1.13 4.69" />
-    <path d="M12 22a10 10 0 0 0 10-10c0-1.68-.41-3.28-1.13-4.69" />
-    <path d="M12 22a10 10 0 0 1-10-10c0-1.68.41-3.28 1.13-4.69" />
-    <path d="M5.13 16.69A5 5 0 0 0 12 22a5 5 0 0 0 6.87-5.31" />
-    <path d="M18.87 7.31A5 5 0 0 0 12 2a5 5 0 0 0-6.87 5.31" />
-    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+    <path d="M2 17l10 5 10-5" />
+    <path d="M2 12l10 5 10-5" />
+    <path d="M22 7v10" />
+    <path d="M12 22V12" />
+    <path d="M2 7v10" />
   </svg>
 );
 
@@ -171,6 +170,16 @@ export const BookmarkIcon: React.FC<IconProps> = (props) => (
 export const PaperAirplaneIcon: React.FC<IconProps> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+  </svg>
+);
+
+export const ChatAgentIcon: React.FC<IconProps> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M20 2H4a2 2 0 0 0-2 2v16l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/>
+    <path d="M8 9h.01"/>
+    <path d="M12 9h.01"/>
+    <path d="M16 9h.01"/>
+    <path d="M8 13h8"/>
   </svg>
 );
 
