@@ -58,54 +58,58 @@ const parseMarkdown = (text: string) => {
 const renderTextMarkdown = (text: string): string => {
   if (!text) return '';
 
-  let processedText = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  const processInlines = (str: string): string => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`(.*?)`/g, '<code class="bg-gray-700/50 text-cyan-300 rounded px-1.5 py-1 font-mono text-sm">$1</code>');
+  };
 
-  processedText = processedText
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>');
-  
-  processedText = processedText.replace(/`(.*?)`/g, '<code class="bg-gray-700/50 text-cyan-300 rounded px-1.5 py-1 font-mono text-sm">$1</code>');
+  const blocks = text.split(/\n\s*\n/);
 
-  const lines = processedText.split('\n');
-  let inList = false;
-  const newLines = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.match(/^\s*(\*|-)\s/)) {
-      if (!inList) {
-        newLines.push('<ul>');
-        inList = true;
-      }
-      newLines.push(`<li>${line.replace(/^\s*(\*|-)\s/, '')}</li>`);
-    } else {
-      if (inList) {
-        newLines.push('</ul>');
-        inList = false;
-      }
-      newLines.push(line);
+  const htmlBlocks = blocks.map(block => {
+    if (!block.trim()) return '';
+
+    // Headings
+    const headingMatch = block.match(/^(#{1,6})\s+(.*)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const content = processInlines(headingMatch[2].trim());
+      return `<h${level}>${content}</h${level}>`;
     }
-  }
-  if (inList) {
-    newLines.push('</ul>');
-  }
-  processedText = newLines.join('\n');
 
-  const paragraphs = processedText.split(/\n\s*\n/);
-  return paragraphs
-    .map(p => {
-      if (!p.trim()) return '';
-      if (p.trim().startsWith('<ul>')) {
-        return p;
-      }
-      return `<p>${p.replace(/\n/g, '<br />')}</p>`;
-    })
-    .join('');
+    // Horizontal Rule
+    if (block.match(/^(\*\*\*|---|___)\s*$/)) {
+      return '<hr />';
+    }
+    
+    // Blockquotes
+    if (block.startsWith('>')) {
+      const content = block.split('\n').map(line => line.replace(/^>\s?/, '')).join('\n');
+      return `<blockquote>${processInlines(content).replace(/\n/g, '<br />')}</blockquote>`;
+    }
+
+    // Lists
+    if (block.match(/^\s*(\*|-)\s/)) {
+      const items = block.split('\n').map(item => {
+        const content = processInlines(item.replace(/^\s*(\*|-)\s/, ''));
+        return `<li>${content}</li>`;
+      }).join('');
+      return `<ul>${items}</ul>`;
+    }
+
+    // Paragraphs
+    return `<p>${processInlines(block).replace(/\n/g, '<br />')}</p>`;
+  });
+
+  return htmlBlocks.join('');
 };
+
 
 const TextContent: React.FC<{ content: string }> = ({ content }) => {
   const htmlContent = useMemo(() => renderTextMarkdown(content), [content]);
@@ -389,150 +393,147 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
 
   return (
-    <div className="flex flex-col h-screen max-h-screen w-full p-4 md:p-8">
-      <header className="flex items-center mb-6">
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group">
+    <div className="flex flex-col h-screen max-h-screen w-full bg-black/20 backdrop-blur-lg">
+      <header className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group w-40">
             <ArrowLeftIcon className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            Back to Studio
+            <span>Back to Studio</span>
         </button>
-      </header>
-
-      <div className="flex-1 flex flex-col bg-black/20 backdrop-blur-lg border border-white/10 shadow-2xl shadow-blue-500/10 rounded-2xl overflow-hidden">
-        {/* Chat Header */}
-        <div className="flex items-center gap-4 p-4 border-b border-white/10">
-          <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full">
-            <BrainCircuitIcon className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-xl font-bold text-white">Agent Studio</h1>
+        <div className="flex items-center gap-4">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full">
+              <BrainCircuitIcon className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-xl font-bold text-white">Agent Studio</h1>
         </div>
-        
-        {/* Messages */}
-        <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
-          <div className="flex flex-col gap-6">
-            {messages.map((msg) => {
-              if (msg.sender === 'user') {
-                return (
-                  <div key={msg.id} className="flex items-start gap-4 animate-fade-in justify-end">
-                    <div className="max-w-md rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 rounded-br-none overflow-hidden">
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <div className={`p-2 grid grid-cols-2 sm:grid-cols-3 gap-2 ${msg.text.trim() ? 'border-b border-white/20' : ''}`}>
-                          {msg.attachments.map(att => (
-                            <div key={att.id} className="bg-black/20 rounded-lg overflow-hidden relative group">
-                              {att.previewUrl ? (
-                                <img src={att.previewUrl} alt={att.file.name} className="w-full h-auto object-cover" />
-                              ) : (
-                                <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center">
-                                  <div className="flex-1 min-w-0 text-center">
-                                    <DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" />
-                                    <p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p>
-                                    <p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {msg.text.trim() && (
-                        <div className="p-4">
-                          <p className="text-white whitespace-pre-wrap">{msg.text}</p>
-                        </div>
-                      )}
-                    </div>
-                    <Avatar>
-                      <AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" />
-                      <AvatarFallback>U</AvatarFallback>
-                    </Avatar>
-                  </div>
-                );
-              }
-              
+        <div className="w-40" />
+      </header>
+      
+      {/* Messages */}
+      <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
+        <div className="flex flex-col gap-6">
+          {messages.map((msg) => {
+            if (msg.sender === 'user') {
               return (
-                <div key={msg.id} className="animate-fade-in w-full">
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10">
-                      <BotIcon className="w-6 h-6 text-cyan-300" />
-                    </div>
-                    <div className="flex-1 pt-2 min-w-0">
-                      <BotMessageContent text={msg.text} isStreaming={msg.isStreaming} />
-                    </div>
+                <div key={msg.id} className="flex items-start gap-4 animate-fade-in justify-end">
+                  <div className="max-w-md rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 rounded-br-none overflow-hidden">
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className={`p-2 grid grid-cols-2 sm:grid-cols-3 gap-2 ${msg.text.trim() ? 'border-b border-white/20' : ''}`}>
+                        {msg.attachments.map(att => (
+                          <div key={att.id} className="bg-black/20 rounded-lg overflow-hidden relative group">
+                            {att.previewUrl ? (
+                              <img src={att.previewUrl} alt={att.file.name} className="w-full h-auto object-cover" />
+                            ) : (
+                              <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center">
+                                <div className="flex-1 min-w-0 text-center">
+                                  <DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" />
+                                  <p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p>
+                                  <p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {msg.text.trim() && (
+                      <div className="p-4">
+                        <p className="text-white whitespace-pre-wrap">{msg.text}</p>
+                      </div>
+                    )}
                   </div>
+                  <Avatar>
+                    <AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" />
+                    <AvatarFallback>U</AvatarFallback>
+                  </Avatar>
                 </div>
               );
-            })}
-             {isTyping && (
-                  <div key="typing-indicator" className="flex items-start gap-4 animate-fade-in">
-                    <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10">
-                      <BotIcon className="w-6 h-6 text-cyan-300" />
-                    </div>
-                    <div className="py-4 px-2 flex items-center gap-2">
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-                    </div>
+            }
+            
+            return (
+              <div key={msg.id} className="animate-fade-in w-full">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10">
+                    <BotIcon className="w-6 h-6 text-cyan-300" />
                   </div>
-                )}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* Input Area */}
-        <div className="p-4 border-t border-white/10">
-          {attachments.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
-              {attachments.map((attachment) => (
-                <div key={attachment.id} className="group relative bg-gray-700/50 border border-white/10 rounded-lg animate-fade-in overflow-hidden w-24 h-24">
-                  {attachment.previewUrl ? (
-                      <img src={attachment.previewUrl} alt={attachment.file.name} title={attachment.file.name} className="w-full h-full object-cover" />
-                  ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center">
-                          <DocumentIcon className="w-8 h-8 text-gray-300" />
-                          <p className="text-white text-xs font-medium truncate mt-2 w-full" title={attachment.file.name}>{attachment.file.name}</p>
-                      </div>
-                  )}
-                  <div className="absolute bottom-0 left-0 w-full bg-black/60 p-1 text-center backdrop-blur-sm">
-                      <p className="text-gray-300 text-[10px]">
-                          {formatFileSize(attachment.file.size)}
-                      </p>
+                  <div className="flex-1 pt-2 min-w-0">
+                    <BotMessageContent text={msg.text} isStreaming={msg.isStreaming} />
                   </div>
-                  <button
-                      onClick={() => handleRemoveAttachment(attachment.id)}
-                      className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-white transition-all"
-                      aria-label={`Remove ${attachment.file.name}`}
-                  >
-                      <XMarkIcon className="w-3.5 h-3.5" />
-                  </button>
                 </div>
-              ))}
-            </div>
-          )}
-          <div className="relative">
-             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple />
-             <button
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-700 transition-colors"
-                aria-label="Attach file"
-              >
-                <PaperClipIcon className="w-5 h-5 text-gray-400" />
-              </button>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Ask me anything..."
-              rows={1}
-              className="w-full bg-gray-800/80 border border-white/10 rounded-lg py-3 pl-12 pr-14 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all custom-scrollbar"
-              style={{maxHeight: '150px'}}
-            />
-            <button
-              onClick={handleSend}
-              disabled={(input.trim() === '' && attachments.length === 0) || isTyping}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-              aria-label="Send message"
-            >
-              <PaperAirplaneIcon className="w-5 h-5 text-white" />
-            </button>
+              </div>
+            );
+          })}
+           {isTyping && (
+                <div key="typing-indicator" className="flex items-start gap-4 animate-fade-in">
+                  <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10">
+                    <BotIcon className="w-6 h-6 text-cyan-300" />
+                  </div>
+                  <div className="py-4 px-2 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                  </div>
+                </div>
+              )}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Input Area */}
+      <div className="p-4 border-t border-white/10 bg-black/30 flex-shrink-0">
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {attachments.map((attachment) => (
+              <div key={attachment.id} className="group relative bg-gray-700/50 border border-white/10 rounded-lg animate-fade-in overflow-hidden w-24 h-24">
+                {attachment.previewUrl ? (
+                    <img src={attachment.previewUrl} alt={attachment.file.name} title={attachment.file.name} className="w-full h-full object-cover" />
+                ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center">
+                        <DocumentIcon className="w-8 h-8 text-gray-300" />
+                        <p className="text-white text-xs font-medium truncate mt-2 w-full" title={attachment.file.name}>{attachment.file.name}</p>
+                    </div>
+                )}
+                <div className="absolute bottom-0 left-0 w-full bg-black/60 p-1 text-center backdrop-blur-sm">
+                    <p className="text-gray-300 text-[10px]">
+                        {formatFileSize(attachment.file.size)}
+                    </p>
+                </div>
+                <button
+                    onClick={() => handleRemoveAttachment(attachment.id)}
+                    className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-white transition-all"
+                    aria-label={`Remove ${attachment.file.name}`}
+                >
+                    <XMarkIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
+        )}
+        <div className="relative">
+           <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple />
+           <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-700 transition-colors"
+              aria-label="Attach file"
+            >
+              <PaperClipIcon className="w-5 h-5 text-gray-400" />
+            </button>
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder="Ask me anything..."
+            rows={1}
+            className="w-full bg-gray-800/80 border border-white/10 rounded-lg py-3 pl-12 pr-14 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all custom-scrollbar"
+            style={{maxHeight: '150px'}}
+          />
+          <button
+            onClick={handleSend}
+            disabled={(input.trim() === '' && attachments.length === 0) || isTyping}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+            aria-label="Send message"
+          >
+            <PaperAirplaneIcon className="w-5 h-5 text-white" />
+          </button>
         </div>
       </div>
     </div>
