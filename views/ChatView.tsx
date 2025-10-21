@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeftIcon, PaperAirplaneIcon, BotIcon, BrainCircuitIcon, PaperClipIcon, DocumentIcon, XMarkIcon } from '../components/IconComponents';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar';
@@ -132,7 +133,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   </div>
                 )}
                 
-                <div className={`max-w-md p-4 rounded-2xl ${msg.sender === 'user' ? 'bg-blue-600 rounded-br-none' : 'bg-gray-800 rounded-bl-none'}`}>
+                <div className={`max-w-md p-4 rounded-2xl ${msg.sender === 'user' ? 'bg-gradient-to-br from-blue-500 to-cyan-500 rounded-br-none' : 'bg-gray-800 rounded-bl-none'}`}>
                   <p className="text-white whitespace-pre-wrap">{msg.text}</p>
                 </div>
 

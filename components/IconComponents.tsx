@@ -3,23 +3,14 @@ import React from 'react';
 type IconProps = React.SVGProps<SVGSVGElement>;
 
 export const BrainCircuitIcon: React.FC<IconProps> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M12 5a3 3 0 1 0-5.993.142"/>
-    <path d="M18 13a3 3 0 1 0-5.993.142"/>
-    <path d="M12 21a3 3 0 1 0-5.993-.142"/>
-    <path d="M6 13a3 3 0 1 0-5.993.142"/>
-    <path d="M18 5a3 3 0 1 0-5.993.142"/>
-    <path d="M12 13a3 3 0 1 0-5.993.142"/>
-    <path d="m4.42 4.48 3.12 3.08"/>
-    <path d="m16.46 4.43-3.08 3.12"/>
-    <path d="m18.01 11.5-3.08 3.12"/>
-    <path d="m19.58 19.52-3.12-3.08"/>
-    <path d="m7.54 19.57-3.08-3.12"/>
-    <path d="m6.01 11.5-3.08-3.12"/>
-    <path d="M12 8v4"/>
-    <path d="M12 16v4"/>
-    <path d="M9.04 13H6"/>
-    <path d="M18 13h-2.96"/>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M12 2a10 10 0 0 0-10 10c0 1.68.41 3.28 1.13 4.69" />
+    <path d="M12 2a10 10 0 0 1 10 10c0 1.68-.41 3.28-1.13 4.69" />
+    <path d="M12 22a10 10 0 0 0 10-10c0-1.68-.41-3.28-1.13-4.69" />
+    <path d="M12 22a10 10 0 0 1-10-10c0-1.68.41-3.28 1.13-4.69" />
+    <path d="M5.13 16.69A5 5 0 0 0 12 22a5 5 0 0 0 6.87-5.31" />
+    <path d="M18.87 7.31A5 5 0 0 0 12 2a5 5 0 0 0-6.87 5.31" />
+    <circle cx="12" cy="12" r="3" />
   </svg>
 );
 
