@@ -14,9 +14,15 @@ interface Attachment {
   file: File;
 }
 
+declare global {
+  interface Window {
+    hljs: any;
+  }
+}
+
 const parseMarkdown = (text: string) => {
   const parts: { type: 'text' | 'code'; content: string; language?: string }[] = [];
-  const codeBlockRegex = /```(.*)\n([\s\S]*?)```/g;
+  const codeBlockRegex = /```([^\n]*)\n?([\s\S]*?)```/g;
   let lastIndex = 0;
   let match;
 
@@ -106,6 +112,13 @@ const TextContent: React.FC<{ content: string }> = ({ content }) => {
 
 const CodeBlock: React.FC<{ language: string; content: string }> = ({ language, content }) => {
   const [isCopied, setIsCopied] = useState(false);
+  const codeRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (codeRef.current && window.hljs) {
+      window.hljs.highlightElement(codeRef.current);
+    }
+  }, [content, language]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content).then(() => {
@@ -125,7 +138,7 @@ const CodeBlock: React.FC<{ language: string; content: string }> = ({ language, 
           <span className="font-sans">{isCopied ? 'Copied!' : 'Copy'}</span>
         </button>
       </div>
-      <pre className="p-4 overflow-x-auto custom-scrollbar"><code className="text-sm text-white">{content}</code></pre>
+      <pre className="p-4 overflow-x-auto custom-scrollbar"><code ref={codeRef} className={`language-${language} text-sm`}>{content}</code></pre>
     </div>
   );
 };
@@ -135,14 +148,19 @@ const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ 
     const [displayedText, setDisplayedText] = useState('');
 
     useEffect(() => {
-        if (displayedText.length < text.length) {
-            const timeoutId = setTimeout(() => {
-                const nextLength = Math.min(text.length, displayedText.length + 15);
-                setDisplayedText(text.slice(0, nextLength));
-            }, 10); // Typing speed: very fast
-            return () => clearTimeout(timeoutId);
-        }
-    }, [text, displayedText]);
+      if (!isStreaming) {
+        setDisplayedText(text);
+        return;
+      }
+      
+      if (displayedText.length < text.length) {
+          const timeoutId = setTimeout(() => {
+              const nextLength = Math.min(text.length, displayedText.length + 50);
+              setDisplayedText(text.slice(0, nextLength));
+          }, 5); // Typing speed: very fast
+          return () => clearTimeout(timeoutId);
+      }
+    }, [text, displayedText, isStreaming]);
     
     const messageParts = useMemo(() => parseMarkdown(displayedText), [displayedText]);
 
@@ -154,6 +172,7 @@ const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ 
                 }
                 return <TextContent key={index} content={part.content} />;
             })}
+            {isStreaming && <span className="inline-block w-2 h-4 bg-white animate-blink ml-1 align-middle"></span>}
         </div>
     );
 };

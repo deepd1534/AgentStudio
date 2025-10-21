@@ -9,12 +9,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
       body {
         font-family: 'Inter', sans-serif;
       }
       code, pre {
         font-family: 'Fira Code', monospace;
+      }
+      /* highlight.js override for background */
+      .hljs {
+        background: transparent !important;
       }
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
@@ -64,10 +70,10 @@
         background-color: rgba(0, 190, 255, 0.6);
       }
       @keyframes blink {
-        50% { opacity: 0.4; }
+        50% { opacity: 0; }
       }
       .animate-blink {
-        animation: blink 1.5s step-start infinite;
+        animation: blink 1s step-start infinite;
       }
       [contenteditable]:focus {
         outline: none;
