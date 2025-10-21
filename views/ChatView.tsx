@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeftIcon, PaperAirplaneIcon, BotIcon, BrainCircuitIcon, PaperClipIcon, DocumentIcon, XMarkIcon } from '../components/IconComponents';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar';
@@ -16,6 +15,7 @@ interface Attachment {
 }
 
 const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const [sessionId, setSessionId] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'initial',
@@ -30,6 +30,10 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setSessionId(crypto.randomUUID());
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -38,37 +42,106 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (input.trim() === '' && attachments.length === 0) return;
 
-    let messageText = input;
-    if (attachments.length > 0) {
-      const fileNames = attachments.map(a => a.file.name).join(', ');
-      messageText += `\n(Attached: ${fileNames})`;
-    }
-    
     const userMessage: Message = {
       id: crypto.randomUUID(),
-      text: messageText,
+      text: input,
       sender: 'user',
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const botMessageId = crypto.randomUUID();
+    const botMessagePlaceholder: Message = { id: botMessageId, text: '', sender: 'bot' };
+
+    setMessages(prev => [...prev, userMessage, botMessagePlaceholder]);
     setInput('');
     setAttachments([]);
     setIsTyping(true);
 
-    // Dummy bot response
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: crypto.randomUUID(),
-        text: "This is a dummy response. I'm not connected to a real AI yet, but I'm looking forward to chatting with you!",
-        sender: 'bot',
-      };
-      setMessages(prev => [...prev, botResponse]);
+    const formData = new FormData();
+    formData.append('agent_id', 'ChatAgent');
+    formData.append('message', input);
+    formData.append('stream', 'true');
+    formData.append('session_id', sessionId);
+    formData.append('user_id', 'deep');
+    // Files are not appended as per instruction to send an empty array for now.
+
+    try {
+      const response = await fetch('http://localhost:7777/agents/ChatAgent/runs', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let streamingEnded = false;
+
+      while (!streamingEnded) {
+        const { done, value } = await reader.read();
+        if (done) {
+          streamingEnded = true;
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const messageParts = buffer.split('\n\n');
+        buffer = messageParts.pop() || '';
+
+        for (const part of messageParts) {
+          if (!part.trim()) continue;
+
+          let eventName = 'message';
+          const dataLines: string[] = [];
+          const lines = part.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              eventName = line.substring('event: '.length).trim();
+            } else if (line.startsWith('data: ')) {
+              dataLines.push(line.substring('data: '.length));
+            }
+          }
+          
+          const eventData = dataLines.join('\n');
+
+          if (eventData) {
+            try {
+              const jsonData = JSON.parse(eventData);
+              if (eventName === 'RunContent') {
+                const content = jsonData.content || '';
+                setMessages(prev => prev.map(msg =>
+                  msg.id === botMessageId ? { ...msg, text: msg.text + content } : msg
+                ));
+              } else if (eventName === 'RunCompleted') {
+                streamingEnded = true;
+              } else if (eventName === 'RunStarted') {
+                console.log('Run started:', jsonData);
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data:', eventData, e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch chat response:", error);
+      console.error(
+        "Hint: This error often occurs if the backend server at http://localhost:7777 is not running, or if there's a CORS issue. Please ensure your server is active and configured to accept requests from this origin."
+      );
+      setMessages(prev => prev.map(msg =>
+        msg.id === botMessageId ? { ...msg, text: "Sorry, I couldn't connect to the agent. Please check if your local server is running correctly and try again." } : msg
+      ));
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
+
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
