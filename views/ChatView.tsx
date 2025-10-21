@@ -175,6 +175,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const isInitialView = messages.length === 0;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const attachmentUrlsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -255,6 +256,11 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
+  const handlePromptClick = (prompt: string) => {
+    setInput(prompt);
+    inputRef.current?.focus();
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
@@ -301,7 +307,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       </header>
       
       <div className={`flex-1 flex flex-col transition-all duration-700 ease-in-out overflow-hidden ${isInitialView ? 'justify-center' : 'justify-end'}`}>
-        <div className={`flex-1 p-6 space-y-6 overflow-y-auto custom-scrollbar transition-opacity duration-500 ${isInitialView ? 'opacity-0' : 'opacity-100'}`}>
+        <div className={`space-y-6 overflow-y-auto custom-scrollbar transition-all duration-500 ease-in-out ${isInitialView ? 'opacity-0' : 'flex-1 p-6 opacity-100'}`}>
           {messages.map((msg) => msg.sender === 'user' ? (
             <div key={msg.id} className="flex items-start gap-4 animate-fade-in justify-end">
               <div className="max-w-md rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 rounded-br-none overflow-hidden">
@@ -327,7 +333,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
 
         <div className={`w-full max-w-3xl mx-auto px-4 pb-4 transition-all duration-700 ease-in-out`}>
-          <InitialContent onPromptClick={handleSend} isVisible={isInitialView} />
+          <InitialContent onPromptClick={handlePromptClick} isVisible={isInitialView} />
           <div className={`relative mt-4 transition-all duration-700 ease-in-out`}>
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2 p-2 bg-gray-800/50 border border-white/10 rounded-t-lg">
@@ -335,7 +341,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </div>
             )}
             <div className={`bg-gray-800/80 border border-white/10 overflow-hidden transition-all duration-300 ${attachments.length > 0 ? 'rounded-b-lg' : 'rounded-lg'} ${isInitialView ? 'shadow-2xl shadow-blue-500/10' : ''}`}>
-              <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyPress} placeholder="Ask whatever you want..." rows={isInitialView ? 3 : 1} className="w-full bg-transparent p-4 resize-none focus:outline-none custom-scrollbar" style={{maxHeight: '150px'}} />
+              <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyPress} placeholder="Ask whatever you want..." rows={isInitialView ? 3 : 1} className="w-full bg-transparent p-4 resize-none focus:outline-none custom-scrollbar" style={{maxHeight: '150px'}} />
               <div className="flex justify-between items-center p-2 border-t border-white/10">
                 <div className="flex items-center gap-1"><input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple /><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors p-2 rounded-md"><PaperClipIcon className="w-5 h-5" /> <span className="hidden sm:inline">Add Attachment</span></button></div>
                 <div className="flex items-center gap-3"><span className="text-xs text-gray-500">{characterCount}/1000</span><button onClick={handleSend} disabled={(input.trim() === '' && attachments.length === 0) || isTyping} className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" aria-label="Send message"><PaperAirplaneIcon className="w-5 h-5 text-white" /></button></div>
