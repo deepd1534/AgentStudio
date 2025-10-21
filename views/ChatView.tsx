@@ -7,11 +7,13 @@ interface Message {
   text: string;
   sender: 'user' | 'bot';
   isStreaming?: boolean;
+  attachments?: Attachment[];
 }
 
 interface Attachment {
   id:string;
   file: File;
+  previewUrl?: string;
 }
 
 declare global {
@@ -177,6 +179,13 @@ const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ 
     );
 };
 
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
 
 const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [sessionId, setSessionId] = useState('');
@@ -194,9 +203,15 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentUrlsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setSessionId(crypto.randomUUID());
+
+    // Cleanup object URLs on component unmount
+    return () => {
+      attachmentUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    }
   }, []);
 
   const scrollToBottom = () => {
@@ -214,6 +229,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       id: crypto.randomUUID(),
       text: input,
       sender: 'user',
+      attachments: attachments,
     };
 
     const botMessageId = crypto.randomUUID();
@@ -230,7 +246,9 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     formData.append('stream', 'true');
     formData.append('session_id', sessionId);
     formData.append('user_id', 'deep');
-    // Files are not appended as per instruction to send an empty array for now.
+    attachments.forEach(attachment => {
+      formData.append('files', attachment.file);
+    });
 
     try {
       const response = await fetch('http://localhost:7777/agents/ChatAgent/runs', {
@@ -320,10 +338,18 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files).map(file => ({
-        id: crypto.randomUUID(),
-        file: file,
-      }));
+      const newFiles = Array.from(e.target.files).map(file => {
+        let previewUrl: string | undefined = undefined;
+        if (file.type.startsWith('image/')) {
+          previewUrl = URL.createObjectURL(file);
+          attachmentUrlsRef.current.add(previewUrl);
+        }
+        return {
+          id: crypto.randomUUID(),
+          file: file,
+          previewUrl,
+        };
+      });
       setAttachments(prev => [...prev, ...newFiles]);
     }
     // Reset the input value to allow re-uploading the same file
@@ -333,16 +359,13 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const handleRemoveAttachment = (idToRemove: string) => {
+    const attachmentToRemove = attachments.find(att => att.id === idToRemove);
+    if (attachmentToRemove?.previewUrl) {
+      URL.revokeObjectURL(attachmentToRemove.previewUrl);
+      attachmentUrlsRef.current.delete(attachmentToRemove.previewUrl);
+    }
     setAttachments(prev => prev.filter(attachment => attachment.id !== idToRemove));
   };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
 
 
   return (
@@ -370,8 +393,31 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               if (msg.sender === 'user') {
                 return (
                   <div key={msg.id} className="flex items-start gap-4 animate-fade-in justify-end">
-                    <div className="max-w-md p-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 rounded-br-none">
-                      <p className="text-white whitespace-pre-wrap">{msg.text}</p>
+                    <div className="max-w-md rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 rounded-br-none overflow-hidden">
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className={`p-2 grid grid-cols-2 sm:grid-cols-3 gap-2 ${msg.text.trim() ? 'border-b border-white/20' : ''}`}>
+                          {msg.attachments.map(att => (
+                            <div key={att.id} className="bg-black/20 rounded-lg overflow-hidden relative group">
+                              {att.previewUrl ? (
+                                <img src={att.previewUrl} alt={att.file.name} className="w-full h-auto object-cover" />
+                              ) : (
+                                <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center">
+                                  <div className="flex-1 min-w-0 text-center">
+                                    <DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" />
+                                    <p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p>
+                                    <p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {msg.text.trim() && (
+                        <div className="p-4">
+                          <p className="text-white whitespace-pre-wrap">{msg.text}</p>
+                        </div>
+                      )}
                     </div>
                     <Avatar>
                       <AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" />
@@ -415,20 +461,26 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2">
               {attachments.map((attachment) => (
-                <div key={attachment.id} className="group relative w-48 p-2 bg-gray-700/50 border border-white/10 rounded-lg flex items-center gap-2 animate-fade-in overflow-hidden">
-                  <DocumentIcon className="w-5 h-5 text-gray-300 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-xs font-medium truncate" title={attachment.file.name}>{attachment.file.name}</p>
-                    <p className="text-gray-400 text-[10px]">
-                      {formatFileSize(attachment.file.size)}
-                    </p>
+                <div key={attachment.id} className="group relative bg-gray-700/50 border border-white/10 rounded-lg animate-fade-in overflow-hidden w-24 h-24">
+                  {attachment.previewUrl ? (
+                      <img src={attachment.previewUrl} alt={attachment.file.name} title={attachment.file.name} className="w-full h-full object-cover" />
+                  ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center">
+                          <DocumentIcon className="w-8 h-8 text-gray-300" />
+                          <p className="text-white text-xs font-medium truncate mt-2 w-full" title={attachment.file.name}>{attachment.file.name}</p>
+                      </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 w-full bg-black/60 p-1 text-center backdrop-blur-sm">
+                      <p className="text-gray-300 text-[10px]">
+                          {formatFileSize(attachment.file.size)}
+                      </p>
                   </div>
                   <button
-                    onClick={() => handleRemoveAttachment(attachment.id)}
-                    className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-white transition-all"
-                    aria-label={`Remove ${attachment.file.name}`}
+                      onClick={() => handleRemoveAttachment(attachment.id)}
+                      className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-white transition-all"
+                      aria-label={`Remove ${attachment.file.name}`}
                   >
-                    <XMarkIcon className="w-3.5 h-3.5" />
+                      <XMarkIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
