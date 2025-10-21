@@ -1,18 +1,162 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeftIcon, PaperAirplaneIcon, BotIcon, BrainCircuitIcon, PaperClipIcon, DocumentIcon, XMarkIcon } from '../components/IconComponents';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { ArrowLeftIcon, PaperAirplaneIcon, BotIcon, BrainCircuitIcon, PaperClipIcon, DocumentIcon, XMarkIcon, ClipboardCopyIcon, CheckIcon } from '../components/IconComponents';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar';
 
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'bot';
+  isStreaming?: boolean;
 }
 
 interface Attachment {
-  id: string;
+  id:string;
   file: File;
 }
+
+const parseMarkdown = (text: string) => {
+  const parts: { type: 'text' | 'code'; content: string; language?: string }[] = [];
+  const codeBlockRegex = /```(\S*)\n([\s\S]*?)\n```/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({
+        type: 'text',
+        content: text.substring(lastIndex, match.index),
+      });
+    }
+
+    parts.push({
+      type: 'code',
+      language: match[1] || 'plaintext',
+      content: match[2].trim(),
+    });
+
+    lastIndex = codeBlockRegex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({
+      type: 'text',
+      content: text.substring(lastIndex),
+    });
+  }
+
+  return parts;
+};
+
+const renderTextMarkdown = (text: string): string => {
+  if (!text) return '';
+
+  let processedText = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  processedText = processedText
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+  
+  processedText = processedText.replace(/`(.*?)`/g, '<code class="bg-gray-700/50 text-cyan-300 rounded px-1.5 py-1 font-mono text-sm">$1</code>');
+
+  const lines = processedText.split('\n');
+  let inList = false;
+  const newLines = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.match(/^\s*(\*|-)\s/)) {
+      if (!inList) {
+        newLines.push('<ul>');
+        inList = true;
+      }
+      newLines.push(`<li>${line.replace(/^\s*(\*|-)\s/, '')}</li>`);
+    } else {
+      if (inList) {
+        newLines.push('</ul>');
+        inList = false;
+      }
+      newLines.push(line);
+    }
+  }
+  if (inList) {
+    newLines.push('</ul>');
+  }
+  processedText = newLines.join('\n');
+
+  const paragraphs = processedText.split(/\n\s*\n/);
+  return paragraphs
+    .map(p => {
+      if (!p.trim()) return '';
+      if (p.trim().startsWith('<ul>')) {
+        return p;
+      }
+      return `<p>${p.replace(/\n/g, '<br />')}</p>`;
+    })
+    .join('');
+};
+
+const TextContent: React.FC<{ content: string }> = ({ content }) => {
+  const htmlContent = useMemo(() => renderTextMarkdown(content), [content]);
+  return <div className="markdown-content" dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+};
+
+const CodeBlock: React.FC<{ language: string; content: string }> = ({ language, content }) => {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }, (err) => {
+      console.error('Failed to copy: ', err);
+    });
+  };
+
+  return (
+    <div className="bg-gray-800/70 border border-white/10 rounded-lg my-4 overflow-hidden animate-fade-in">
+      <div className="flex justify-between items-center px-4 py-2 bg-black/20">
+        <span className="text-xs font-semibold text-gray-400 uppercase">{language}</span>
+        <button onClick={handleCopy} className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white transition-colors disabled:opacity-50" disabled={isCopied}>
+          {isCopied ? <CheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardCopyIcon className="w-4 h-4" />}
+          <span className="font-sans">{isCopied ? 'Copied!' : 'Copy'}</span>
+        </button>
+      </div>
+      <pre className="p-4 overflow-x-auto custom-scrollbar"><code className="text-sm text-white">{content}</code></pre>
+    </div>
+  );
+};
+
+
+const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ text, isStreaming }) => {
+    const [displayedText, setDisplayedText] = useState('');
+
+    useEffect(() => {
+        if (displayedText.length < text.length) {
+            const timeoutId = setTimeout(() => {
+                setDisplayedText(text.slice(0, displayedText.length + 1));
+            }, 6); // Typing speed
+            return () => clearTimeout(timeoutId);
+        }
+    }, [text, displayedText]);
+    
+    const messageParts = useMemo(() => parseMarkdown(displayedText), [displayedText]);
+
+    return (
+        <div className="text-white break-words">
+            {messageParts.map((part, index) => {
+                if (part.type === 'code') {
+                    return <CodeBlock key={index} language={part.language || 'code'} content={part.content} />;
+                }
+                return <TextContent key={index} content={part.content} />;
+            })}
+        </div>
+    );
+};
+
 
 const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [sessionId, setSessionId] = useState('');
@@ -20,7 +164,8 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     {
       id: 'initial',
       text: "Hello! I'm your AI Assistant. How can I help you be more creative or productive today?",
-      sender: 'bot'
+      sender: 'bot',
+      isStreaming: false,
     }
   ]);
   const [input, setInput] = useState('');
@@ -52,7 +197,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
 
     const botMessageId = crypto.randomUUID();
-    const botMessagePlaceholder: Message = { id: botMessageId, text: '', sender: 'bot' };
+    const botMessagePlaceholder: Message = { id: botMessageId, text: '', sender: 'bot', isStreaming: true };
 
     setMessages(prev => [...prev, userMessage, botMessagePlaceholder]);
     setInput('');
@@ -76,7 +221,8 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       if (!response.ok || !response.body) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+      
+      setIsTyping(false);
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -86,6 +232,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const { done, value } = await reader.read();
         if (done) {
           streamingEnded = true;
+          setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, isStreaming: false } : msg));
           break;
         }
 
@@ -119,6 +266,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   msg.id === botMessageId ? { ...msg, text: msg.text + content } : msg
                 ));
               } else if (eventName === 'RunCompleted') {
+                setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, isStreaming: false } : msg));
                 streamingEnded = true;
               } else if (eventName === 'RunStarted') {
                 console.log('Run started:', jsonData);
@@ -135,7 +283,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         "Hint: This error often occurs if the backend server at http://localhost:7777 is not running, or if there's a CORS issue. Please ensure your server is active and configured to accept requests from this origin."
       );
       setMessages(prev => prev.map(msg =>
-        msg.id === botMessageId ? { ...msg, text: "Sorry, I couldn't connect to the agent. Please check if your local server is running correctly and try again." } : msg
+        msg.id === botMessageId ? { ...msg, text: "Sorry, I couldn't connect to the agent. Please check if your local server is running correctly and try again.", isStreaming: false } : msg
       ));
     } finally {
       setIsTyping(false);
@@ -198,38 +346,46 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         {/* Messages */}
         <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col gap-6">
-            {messages.map(msg => (
-              <div key={msg.id} className={`flex items-start gap-4 animate-fade-in ${msg.sender === 'user' ? 'justify-end' : ''}`}>
-                {msg.sender === 'bot' && (
-                  <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10">
-                    <BotIcon className="w-6 h-6 text-cyan-300" />
+            {messages.map((msg) => {
+              if (msg.sender === 'user') {
+                return (
+                  <div key={msg.id} className="flex items-start gap-4 animate-fade-in justify-end">
+                    <div className="max-w-md p-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 rounded-br-none">
+                      <p className="text-white whitespace-pre-wrap">{msg.text}</p>
+                    </div>
+                    <Avatar>
+                      <AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" />
+                      <AvatarFallback>U</AvatarFallback>
+                    </Avatar>
+                  </div>
+                );
+              }
+              
+              return (
+                <div key={msg.id} className="animate-fade-in w-full">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10">
+                      <BotIcon className="w-6 h-6 text-cyan-300" />
+                    </div>
+                    <div className="flex-1 pt-2 min-w-0">
+                      <BotMessageContent text={msg.text} isStreaming={msg.isStreaming} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+             {isTyping && (
+                  <div key="typing-indicator" className="flex items-start gap-4 animate-fade-in">
+                    <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10">
+                      <BotIcon className="w-6 h-6 text-cyan-300" />
+                    </div>
+                    <div className="py-4 px-2 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                      <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                    </div>
                   </div>
                 )}
-                
-                <div className={`max-w-md p-4 rounded-2xl ${msg.sender === 'user' ? 'bg-gradient-to-br from-blue-500 to-purple-600 rounded-br-none' : 'bg-gray-800 rounded-bl-none'}`}>
-                  <p className="text-white whitespace-pre-wrap">{msg.text}</p>
-                </div>
-
-                {msg.sender === 'user' && (
-                  <Avatar>
-                    <AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" />
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
-            {isTyping && (
-              <div className="flex items-start gap-4 animate-fade-in">
-                <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10">
-                  <BotIcon className="w-6 h-6 text-cyan-300" />
-                </div>
-                <div className="max-w-md p-4 rounded-2xl bg-gray-800 rounded-bl-none flex items-center gap-2">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-                </div>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         </div>

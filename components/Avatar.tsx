@@ -32,7 +32,6 @@ const Avatar: React.FC<{ children: React.ReactNode; className?: string }> = ({ c
 const AvatarImage: React.FC<React.ImgHTMLAttributes<HTMLImageElement>> = ({ src, className, ...props }) => {
   const { imageStatus, setImageStatus } = useAvatarContext();
 
-  // FIX: Handle Blob type for `src` prop by creating an object URL.
   const objectUrl = useMemo(() => {
     if (src instanceof Blob) {
       return URL.createObjectURL(src);

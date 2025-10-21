@@ -4,7 +4,6 @@ interface EditableProps {
   html: string;
   onChange: (value: string) => void;
   onDirty: () => void;
-  // FIX: Changed JSX.IntrinsicElements to React.JSX.IntrinsicElements to resolve namespace issue in modern React.
   as?: keyof React.JSX.IntrinsicElements;
   className?: string;
   [x: string]: any;
