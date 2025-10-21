@@ -145,6 +145,26 @@ const CodeBlock: React.FC<{ language: string; content: string }> = ({ language, 
   );
 };
 
+const ThinkingIndicator: React.FC = () => {
+  const [dots, setDots] = useState('.');
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setDots(prev => {
+        if (prev.length >= 3) return '.';
+        return prev + '.';
+      });
+    }, 400);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  return (
+    <span className="inline-block ml-1 text-gray-400 italic">
+      thinking{dots}
+    </span>
+  );
+};
+
 
 const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ text, isStreaming }) => {
     const [displayedText, setDisplayedText] = useState('');
@@ -174,7 +194,7 @@ const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ 
                 }
                 return <TextContent key={index} content={part.content} />;
             })}
-            {isStreaming && <span className="inline-block w-2 h-4 bg-white animate-blink ml-1 align-middle"></span>}
+            {isStreaming && <ThinkingIndicator />}
         </div>
     );
 };
