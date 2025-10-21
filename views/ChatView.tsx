@@ -16,7 +16,7 @@ interface Attachment {
 
 const parseMarkdown = (text: string) => {
   const parts: { type: 'text' | 'code'; content: string; language?: string }[] = [];
-  const codeBlockRegex = /```(\S*)\n([\s\S]*?)\n```/g;
+  const codeBlockRegex = /```(.*)\n([\s\S]*?)```/g;
   let lastIndex = 0;
   let match;
 
@@ -30,7 +30,7 @@ const parseMarkdown = (text: string) => {
 
     parts.push({
       type: 'code',
-      language: match[1] || 'plaintext',
+      language: match[1].trim().split(/\s+/)[0] || 'plaintext',
       content: match[2].trim(),
     });
 
@@ -137,8 +137,9 @@ const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ 
     useEffect(() => {
         if (displayedText.length < text.length) {
             const timeoutId = setTimeout(() => {
-                setDisplayedText(text.slice(0, displayedText.length + 1));
-            }, 6); // Typing speed
+                const nextLength = Math.min(text.length, displayedText.length + 15);
+                setDisplayedText(text.slice(0, nextLength));
+            }, 10); // Typing speed: very fast
             return () => clearTimeout(timeoutId);
         }
     }, [text, displayedText]);
