@@ -1,5 +1,6 @@
 import React from 'react';
 import AgentCard from '../components/AgentCard';
+import FeaturedAgentCard from '../components/FeaturedAgentCard';
 import { 
   PencilSquareIcon, 
   CodeBracketSquareIcon, 
@@ -69,6 +70,9 @@ const allAgents = [
 
 
 const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
+  const chatAgent = allAgents.find(agent => agent.id === 'chat');
+  const otherAgents = allAgents.filter(agent => agent.id !== 'chat');
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <div className="w-full max-w-7xl mx-auto p-8 md:p-16">
@@ -78,8 +82,23 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
           </h1>
           <p className="text-gray-400 mb-16 text-lg text-center">Unleash creativity and productivity with our suite of AI agents.</p>
           
+          {chatAgent && (
+            <FeaturedAgentCard
+              name={chatAgent.name}
+              description={chatAgent.description}
+              icon={chatAgent.icon}
+              onClick={() => onSelectAgent(chatAgent.id)}
+            />
+          )}
+
+          <div className="w-full flex items-center justify-center text-center my-8">
+            <div className="flex-grow border-t border-white/10"></div>
+            <span className="flex-shrink mx-4 text-gray-500 font-semibold tracking-widest text-sm uppercase">Specialized Agents</span>
+            <div className="flex-grow border-t border-white/10"></div>
+          </div>
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 w-full">
-            {allAgents.map(agent => (
+            {otherAgents.map(agent => (
               <AgentCard
                 key={agent.id}
                 name={agent.name}
