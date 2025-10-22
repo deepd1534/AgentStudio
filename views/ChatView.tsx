@@ -239,14 +239,18 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               const jsonData: unknown = JSON.parse(dataLines.join('\n'));
               
               if (eventName === 'RunContent' && typeof jsonData === 'object' && jsonData !== null && 'content' in jsonData) {
-                const contentData = jsonData as { content: any; type?: string; mime_type?: string; filename?: string };
+                const data = jsonData as Record<string, unknown>;
             
-                if (contentData.type === 'image' && typeof contentData.content === 'string' && typeof contentData.mime_type === 'string') {
+                if (data.type === 'image' && typeof data.content === 'string' && typeof data.mime_type === 'string') {
+                  const content = data.content;
+                  const mimeType = data.mime_type;
+                  const filename = typeof data.filename === 'string' ? data.filename : 'image.png';
+
                   const b64toFile = async () => {
-                    const res = await fetch(`data:${contentData.mime_type};base64,${contentData.content}`);
+                    const res = await fetch(`data:${mimeType};base64,${content}`);
                     const blob = await res.blob();
-                    return new File([blob], contentData.filename || 'image.png', { type: contentData.mime_type });
-                  }
+                    return new File([blob], filename, { type: mimeType });
+                  };
             
                   b64toFile().then(file => {
                     const previewUrl = URL.createObjectURL(file);
@@ -268,8 +272,8 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                       return msg;
                     }));
                   });
-                } else if (typeof contentData.content === 'string') {
-                  setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, text: msg.text + (contentData.content || '') } : msg));
+                } else if (typeof data.content === 'string') {
+                  setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, text: msg.text + data.content } : msg));
                 }
               } else if (eventName === 'RunCompleted') {
                 setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, isStreaming: false } : msg));
@@ -343,7 +347,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <div className={`space-y-6 overflow-y-auto custom-scrollbar transition-all duration-500 ease-in-out ${isInitialView ? 'opacity-0' : 'flex-1 p-6 opacity-100'}`}>
           {messages.map((msg) => msg.sender === 'user' ? (
             <div key={msg.id} className="flex items-start gap-4 animate-fade-in justify-end">
-              <div className="max-w-md rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 rounded-br-none overflow-hidden">
+              <div className="max-w-md rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 rounded-br-none overflow-hidden">
                 {msg.attachments && msg.attachments.length > 0 && (
                   <div className={`p-2 grid grid-cols-2 sm:grid-cols-3 gap-2 ${msg.text.trim() ? 'border-b border-white/20' : ''}`}>
                     {msg.attachments.map(att => <div key={att.id} className="bg-black/20 rounded-lg overflow-hidden relative group">{att.previewUrl ? <img src={att.previewUrl} alt={att.file.name} className="w-full h-auto object-cover" /> : <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center"><div className="flex-1 min-w-0 text-center"><DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" /><p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p><p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p></div></div>}</div>)}
@@ -354,7 +358,6 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <Avatar><AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" /><AvatarFallback>U</AvatarFallback></Avatar>
             </div>
           ) : (
-// FIX: Render attachments for bot messages.
             <div key={msg.id} className="animate-fade-in w-full">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10"><BotIcon className="w-6 h-6 text-cyan-300" /></div>
