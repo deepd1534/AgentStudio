@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   ArrowLeftIcon, PaperAirplaneIcon, BotIcon, BrainCircuitIcon, PaperClipIcon, 
-  DocumentIcon, XMarkIcon
+  DocumentIcon, XMarkIcon, StopIcon
 } from '../components/IconComponents';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar';
 import BotMessageContent from '../components/chat/BotMessageContent';
@@ -41,6 +41,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [characterCount, setCharacterCount] = useState(0);
+  const [currentRunId, setCurrentRunId] = useState<string | null>(null);
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
@@ -54,6 +55,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
   const attachmentUrlsRef = useRef<Set<string>>(new Set());
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const fetchAgents = async () => {
     try {
@@ -121,6 +123,19 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const defaultAgent = agents.find(agent => agent.id === 'ChatAgent') || agents[0] || null;
     setActiveAgent(defaultAgent);
   };
+  
+  const handleCancel = async () => {
+    if (!currentRunId || !activeAgent?.id) return;
+
+    try {
+      abortControllerRef.current?.abort();
+      await fetch(`http://localhost:7777/agents/${activeAgent.id}/runs/${currentRunId}/cancel`, {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error("Failed to cancel run:", error);
+    }
+  };
 
   const handleSend = async () => {
     if (messageToSend.trim() === '' && attachments.length === 0) return;
@@ -169,6 +184,8 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     updateMessageToSendState();
     setAttachments([]);
     setIsTyping(true);
+    setCurrentRunId(null);
+    abortControllerRef.current = new AbortController();
 
     const formData = new FormData();
     formData.append('agent_id', agentId);
@@ -179,7 +196,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     attachments.forEach(attachment => formData.append('files', attachment.file));
 
     try {
-      const response = await fetch(`http://localhost:7777/agents/${agentId}/runs`, { method: 'POST', body: formData });
+      const response = await fetch(`http://localhost:7777/agents/${agentId}/runs`, { method: 'POST', body: formData, signal: abortControllerRef.current.signal });
       if (!response.ok || !response.body) throw new Error(`HTTP error! status: ${response.status}`);
 
       setIsTyping(false);
@@ -208,7 +225,12 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             try {
               const jsonData: unknown = JSON.parse(dataLines.join('\n'));
               
-              if (eventName === 'RunContent' && typeof jsonData === 'object' && jsonData !== null) {
+              if (eventName === 'RunStarted' && typeof jsonData === 'object' && jsonData !== null) {
+                  const data = jsonData as { run_id?: string };
+                  if (data.run_id) {
+                    setCurrentRunId(data.run_id);
+                  }
+              } else if (eventName === 'RunContent' && typeof jsonData === 'object' && jsonData !== null) {
                 const data = jsonData as Record<string, any>;
             
                 if (data.type === 'image' && typeof data.content === 'string' && typeof data.mime_type === 'string') {
@@ -255,11 +277,18 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         await processStream();
       };
       await processStream();
-    } catch (error) {
-      console.error("Failed to fetch chat response:", error);
-      setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, text: "Sorry, I couldn't connect to the agent. Please ensure your local server is running.", isStreaming: false } : msg));
+    } catch (error: any) {
+        if (error.name === 'AbortError') {
+            console.log('Fetch aborted.');
+            setMessages(prev => prev.map(msg => ({ ...msg, isStreaming: false })));
+        } else {
+            console.error("Failed to fetch chat response:", error);
+            setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, text: "Sorry, I couldn't connect to the agent. Please ensure your local server is running.", isStreaming: false } : msg));
+        }
     } finally {
       setIsTyping(false);
+      setCurrentRunId(null);
+      abortControllerRef.current = null;
     }
   };
   
@@ -435,6 +464,8 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setAttachments(prev => prev.filter(att => att.id !== idToRemove));
   };
 
+  const isGenerating = isTyping || messages.some(m => m.isStreaming);
+
   return (
     <div className="relative flex flex-col h-screen max-h-screen w-full bg-black/20 backdrop-blur-lg overflow-hidden">
       {isInitialView && (
@@ -555,7 +586,27 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               />
               <div className="flex justify-between items-center p-2 border-t border-white/10">
                 <div className="flex items-center gap-1"><input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple /><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors p-2 rounded-md"><PaperClipIcon className="w-5 h-5" /> <span className="hidden sm:inline">Add Attachment</span></button></div>
-                <div className="flex items-center gap-3"><span className="text-xs text-gray-500">{characterCount}/1000</span><button onClick={() => handleSend()} disabled={(messageToSend.trim() === '' && attachments.length === 0) || isTyping} className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" aria-label="Send message"><PaperAirplaneIcon className="w-5 h-5 text-white" /></button></div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500">{characterCount}/1000</span>
+                  {isGenerating && currentRunId ? (
+                    <button 
+                      onClick={handleCancel}
+                      className="p-2 rounded-full bg-red-600 hover:bg-red-500 transition-colors animate-pulse-red"
+                      aria-label="Stop generating"
+                    >
+                      <StopIcon className="w-5 h-5 text-white" />
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={handleSend} 
+                      disabled={(messageToSend.trim() === '' && attachments.length === 0) || isGenerating}
+                      className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" 
+                      aria-label="Send message"
+                    >
+                      <PaperAirplaneIcon className="w-5 h-5 text-white" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

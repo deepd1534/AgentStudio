@@ -80,7 +80,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectAgent }) => {
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300 animate-pulse px-4 py-2">
             Agent Studio
           </h1>
-          <p className="text-gray-400 mb-16 text-lg text-center">Unleash creativity and productivity with our suite of AI agents.</p>
+          <p className="text-gray-400 mb-16 text-lg text-center">Unleash creativity and productivity with the suite of AI agents.</p>
           
           {chatAgent && (
             <FeaturedAgentCard
