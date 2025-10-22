@@ -195,6 +195,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [characterCount, setCharacterCount] = useState(0);
 
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
   const [showAgentSuggestions, setShowAgentSuggestions] = useState(false);
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
   const [filteredAgents, setFilteredAgents] = useState<Agent[]>([]);
@@ -212,6 +213,8 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data: Agent[] = await response.json();
       setAgents(data);
+      const defaultAgent = data.find(agent => agent.id === 'ChatAgent');
+      setActiveAgent(defaultAgent || data[0] || null);
     } catch (error) {
       console.error("Failed to fetch agents:", error);
     }
@@ -269,29 +272,42 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const handleSend = async () => {
     if (messageToSend.trim() === '' && attachments.length === 0) return;
 
-    let agentId = 'ChatAgent'; // Default agent
+    let agentToSendTo: Agent | null = activeAgent;
     let cleanMessage = messageToSend;
-    const agentNameMatch = messageToSend.match(/@\[([^\]]+)\]/);
+    const userMessageText = messageToSend; // Keep original for display in UI
 
+    const agentNameMatch = messageToSend.match(/@\[([^\]]+)\]/);
     if (agentNameMatch) {
         const taggedAgentName = agentNameMatch[1];
         const taggedAgent = agents.find(agent => agent.name === taggedAgentName);
+
         if (taggedAgent) {
-            agentId = taggedAgent.id;
+            agentToSendTo = taggedAgent;
+            setActiveAgent(taggedAgent); // Set new active agent
             cleanMessage = messageToSend.replace(/@\[[^\]]+\]\s*/, '').trim();
         } else {
             const errorMessage: Message = {
                 id: crypto.randomUUID(),
-                text: `Error: Agent "${taggedAgentName}" not found. Please select a valid agent from the list.`,
+                text: `Error: Agent "${taggedAgentName}" not found. Please select a valid agent.`,
                 sender: 'bot',
-                isStreaming: false
             };
             setMessages(prev => [...prev, errorMessage]);
             return;
         }
     }
 
-    const userMessage: Message = { id: crypto.randomUUID(), text: messageToSend, sender: 'user', attachments };
+    if (!agentToSendTo) {
+        const errorMessage: Message = {
+            id: crypto.randomUUID(),
+            text: 'Error: No active agent. Please select an agent to start the conversation.',
+            sender: 'bot',
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        return;
+    }
+    
+    const agentId = agentToSendTo.id;
+    const userMessage: Message = { id: crypto.randomUUID(), text: userMessageText, sender: 'user', attachments };
     const botMessageId = crypto.randomUUID();
     const botMessagePlaceholder: Message = { id: botMessageId, text: '', sender: 'bot', isStreaming: true };
 
@@ -637,6 +653,11 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <div className={`w-full ${isInitialView ? 'max-w-3xl mx-auto' : ''} px-4 pb-4 transition-all duration-700 ease-in-out`}>
           <InitialContent onPromptClick={handlePromptClick} isVisible={isInitialView} />
           <div className={`relative mt-4 transition-all duration-700 ease-in-out`}>
+            {activeAgent && !isInitialView && (
+              <div className="absolute bottom-full mb-2 left-0 text-xs text-gray-400 bg-gray-900/80 px-3 py-1.5 rounded-t-lg border-t border-l border-r border-white/10 shadow-lg z-10">
+                Talking to: <span className="font-bold text-cyan-400">{activeAgent.name}</span>
+              </div>
+            )}
             {showAgentSuggestions && filteredAgents.length > 0 && (
               <div className="absolute bottom-full mb-2 w-full max-w-md bg-gray-900/80 backdrop-blur-md border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 animate-fade-in">
                 <ul className="max-h-60 overflow-y-auto custom-scrollbar">
