@@ -169,6 +169,22 @@ const InitialContent: React.FC<{ onPromptClick: (prompt: string) => void; isVisi
   );
 };
 
+const UserMessageContent: React.FC<{ text: string }> = ({ text }) => {
+  const content = useMemo(() => {
+    const parts = text.split(/(@\[[^\]]+\])/g);
+    return parts.map((part, index) => {
+      const match = part.match(/@\[([^\]]+)\]/);
+      if (match && match[1]) {
+        const agentName = match[1];
+        return <strong key={index} className="font-semibold text-cyan-300">{agentName}</strong>;
+      }
+      return <React.Fragment key={index}>{part}</React.Fragment>;
+    });
+  }, [text]);
+
+  return <p className="text-white whitespace-pre-wrap">{content}</p>;
+};
+
 // --- Main ChatView Component ---
 const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [sessionId, setSessionId] = useState('');
@@ -189,9 +205,21 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
   const attachmentUrlsRef = useRef<Set<string>>(new Set());
+  
+  const fetchAgents = async () => {
+    try {
+      const response = await fetch('http://localhost:7777/agents');
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data: Agent[] = await response.json();
+      setAgents(data);
+    } catch (error) {
+      console.error("Failed to fetch agents:", error);
+    }
+  };
 
   useEffect(() => {
     setSessionId(crypto.randomUUID());
+    fetchAgents();
     return () => attachmentUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
   }, []);
 
@@ -226,17 +254,6 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setCharacterCount(cleanText.length);
   };
 
-  const fetchAgents = async () => {
-    try {
-      const response = await fetch('http://localhost:7777/agents');
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data: Agent[] = await response.json();
-      setAgents(data);
-    } catch (error) {
-      console.error("Failed to fetch agents:", error);
-    }
-  };
-  
   useEffect(() => {
     if (showAgentSuggestions) {
       const lowercasedQuery = agentSearchQuery.toLowerCase();
@@ -252,6 +269,28 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const handleSend = async () => {
     if (messageToSend.trim() === '' && attachments.length === 0) return;
 
+    let agentId = 'ChatAgent'; // Default agent
+    let cleanMessage = messageToSend;
+    const agentNameMatch = messageToSend.match(/@\[([^\]]+)\]/);
+
+    if (agentNameMatch) {
+        const taggedAgentName = agentNameMatch[1];
+        const taggedAgent = agents.find(agent => agent.name === taggedAgentName);
+        if (taggedAgent) {
+            agentId = taggedAgent.id;
+            cleanMessage = messageToSend.replace(/@\[[^\]]+\]\s*/, '').trim();
+        } else {
+            const errorMessage: Message = {
+                id: crypto.randomUUID(),
+                text: `Error: Agent "${taggedAgentName}" not found. Please select a valid agent from the list.`,
+                sender: 'bot',
+                isStreaming: false
+            };
+            setMessages(prev => [...prev, errorMessage]);
+            return;
+        }
+    }
+
     const userMessage: Message = { id: crypto.randomUUID(), text: messageToSend, sender: 'user', attachments };
     const botMessageId = crypto.randomUUID();
     const botMessagePlaceholder: Message = { id: botMessageId, text: '', sender: 'bot', isStreaming: true };
@@ -263,15 +302,15 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setIsTyping(true);
 
     const formData = new FormData();
-    formData.append('agent_id', 'ChatAgent');
-    formData.append('message', messageToSend);
+    formData.append('agent_id', agentId);
+    formData.append('message', cleanMessage);
     formData.append('stream', 'true');
     formData.append('session_id', sessionId);
     formData.append('user_id', 'deep');
     attachments.forEach(attachment => formData.append('files', attachment.file));
 
     try {
-      const response = await fetch('http://localhost:7777/agents/ChatAgent/runs', { method: 'POST', body: formData });
+      const response = await fetch(`http://localhost:7777/agents/${agentId}/runs`, { method: 'POST', body: formData });
       if (!response.ok || !response.body) throw new Error(`HTTP error! status: ${response.status}`);
 
       setIsTyping(false);
@@ -463,7 +502,6 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           const prevNode = node.previousSibling;
           if (prevNode.nodeType === Node.ELEMENT_NODE && (prevNode as HTMLElement).dataset.agentName) {
             e.preventDefault();
-            // FIX: Property 'remove' does not exist on type 'Node'. Replaced with parentNode.removeChild.
             prevNode.parentNode?.removeChild(prevNode);
             updateMessageToSendState();
           }
@@ -472,9 +510,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           const prevNode = node.previousSibling;
           if (prevNode.nodeType === Node.ELEMENT_NODE && (prevNode as HTMLElement).dataset.agentName) {
             e.preventDefault();
-            // FIX: Property 'remove' does not exist on type 'Node'. Replaced with parentNode.removeChild.
             prevNode.parentNode?.removeChild(prevNode);
-            // FIX: Property 'remove' does not exist on type 'Node'. Replaced with parentNode.removeChild.
             node.parentNode?.removeChild(node);
             updateMessageToSendState();
           }
@@ -562,7 +598,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     {msg.attachments.map(att => <div key={att.id} className="bg-black/20 rounded-lg overflow-hidden relative group">{att.previewUrl ? <img src={att.previewUrl} alt={att.file.name} className="w-full h-auto object-cover" /> : <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center"><div className="flex-1 min-w-0 text-center"><DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" /><p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p><p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p></div></div>}</div>)}
                   </div>
                 )}
-                {msg.text.trim() && <div className="p-4"><p className="text-white whitespace-pre-wrap">{msg.text}</p></div>}
+                {msg.text.trim() && <div className="p-4"><UserMessageContent text={msg.text} /></div>}
               </div>
               <Avatar><AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" /><AvatarFallback>U</AvatarFallback></Avatar>
             </div>
