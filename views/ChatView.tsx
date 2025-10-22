@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   ArrowLeftIcon, PaperAirplaneIcon, BotIcon, BrainCircuitIcon, PaperClipIcon, 
-  DocumentIcon, XMarkIcon, ClipboardCopyIcon, CheckIcon, UserCircleIcon, 
-  EnvelopeIcon, Bars3BottomLeftIcon, Cog6ToothIcon, ArrowPathIcon 
+  DocumentIcon, XMarkIcon
 } from '../components/IconComponents';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar';
+import BotMessageContent from '../components/chat/BotMessageContent';
+import UserMessageContent from '../components/chat/UserMessageContent';
+import InitialContent from '../components/chat/InitialContent';
 
 interface Message {
   id: string;
@@ -25,164 +27,10 @@ interface Agent {
   name: string;
 }
 
-
-declare global {
-  interface Window {
-    hljs: any;
-  }
-}
-
-// --- Markdown Parsers and Renderers ---
-const parseMarkdown = (text: string) => {
-  const parts: { type: 'text' | 'code'; content: string; language?: string }[] = [];
-  const codeBlockRegex = /```([^\n]*)\n?([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let match;
-
-  while ((match = codeBlockRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ type: 'text', content: text.substring(lastIndex, match.index) });
-    }
-    parts.push({ type: 'code', language: match[1].trim().split(/\s+/)[0] || 'plaintext', content: match[2].trim() });
-    lastIndex = codeBlockRegex.lastIndex;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push({ type: 'text', content: text.substring(lastIndex) });
-  }
-  return parts;
-};
-
-const renderTextMarkdown = (text: string): string => {
-  if (!text) return '';
-  const processInlines = (str: string) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/`(.*?)`/g, '<code class="bg-gray-700/50 text-cyan-300 rounded px-1.5 py-1 font-mono text-sm">$1</code>');
-  const blocks = text.split(/\n\s*\n/);
-  return blocks.map(block => {
-    if (!block.trim()) return '';
-    const headingMatch = block.match(/^(#{1,6})\s+(.*)/);
-    if (headingMatch) return `<h${headingMatch[1].length}>${processInlines(headingMatch[2].trim())}</h${headingMatch[1].length}>`;
-    if (block.match(/^(\*\*\*|---|___)\s*$/)) return '<hr />';
-    if (block.startsWith('>')) return `<blockquote>${processInlines(block.split('\n').map(line => line.replace(/^>\s?/, '')).join('\n')).replace(/\n/g, '<br />')}</blockquote>`;
-    if (block.match(/^\s*(\*|-)\s/)) return `<ul>${block.split('\n').map(item => `<li>${processInlines(item.replace(/^\s*(\*|-)\s/, ''))}</li>`).join('')}</ul>`;
-    return `<p>${processInlines(block).replace(/\n/g, '<br />')}</p>`;
-  }).join('');
-};
-
-const TextContent: React.FC<{ content: string }> = ({ content }) => {
-  const htmlContent = useMemo(() => renderTextMarkdown(content), [content]);
-  return <div className="markdown-content" dangerouslySetInnerHTML={{ __html: htmlContent }} />;
-};
-
-// --- Sub-components ---
-const CodeBlock: React.FC<{ language: string; content: string }> = ({ language, content }) => {
-  const [isCopied, setIsCopied] = useState(false);
-  const codeRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    if (codeRef.current && window.hljs) window.hljs.highlightElement(codeRef.current);
-  }, [content, language]);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(content).then(() => {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    });
-  };
-
-  return (
-    <div className="bg-gray-800/70 border border-white/10 rounded-lg my-4 overflow-hidden animate-fade-in">
-      <div className="flex justify-between items-center px-4 py-2 bg-black/20">
-        <span className="text-xs font-semibold text-gray-400 uppercase">{language}</span>
-        <button onClick={handleCopy} className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-white transition-colors disabled:opacity-50" disabled={isCopied}>
-          {isCopied ? <CheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardCopyIcon className="w-4 h-4" />}
-          <span className="font-sans">{isCopied ? 'Copied!' : 'Copy'}</span>
-        </button>
-      </div>
-      <pre className="p-4 overflow-x-auto custom-scrollbar"><code ref={codeRef} className={`language-${language} text-sm`}>{content}</code></pre>
-    </div>
-  );
-};
-
-const ThinkingIndicator: React.FC = () => {
-  const [dots, setDots] = useState('.');
-  useEffect(() => {
-    const intervalId = setInterval(() => setDots(prev => prev.length >= 3 ? '.' : prev + '.'), 400);
-    return () => clearInterval(intervalId);
-  }, []);
-  return <span className="inline-block ml-1 text-gray-400 italic">thinking{dots}</span>;
-};
-
-const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ text, isStreaming }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  useEffect(() => {
-    if (!isStreaming) { setDisplayedText(text); return; }
-    if (displayedText.length < text.length) {
-      const timeoutId = setTimeout(() => setDisplayedText(text.slice(0, Math.min(text.length, displayedText.length + 50))), 5);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [text, displayedText, isStreaming]);
-
-  const messageParts = useMemo(() => parseMarkdown(displayedText), [displayedText]);
-
-  return (
-    <div className="text-white break-words">
-      {messageParts.map((part, index) => part.type === 'code' ? <CodeBlock key={index} language={part.language || 'code'} content={part.content} /> : <TextContent key={index} content={part.content} />)}
-      {isStreaming && text.length === 0 && <ThinkingIndicator />}
-    </div>
-  );
-};
-
 const formatFileSize = (bytes: number) => {
   if (bytes === 0) return '0 Bytes';
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${parseFloat((bytes / Math.pow(1024, i)).toFixed(2))} ${['Bytes', 'KB', 'MB', 'GB'][i]}`;
-};
-
-const PROMPTS = [
-  { text: 'Write a to-do list for a personal project or task', icon: <UserCircleIcon className="w-5 h-5 text-gray-400" /> },
-  { text: 'Generate an email reply to a job offer', icon: <EnvelopeIcon className="w-5 h-5 text-gray-400" /> },
-  { text: 'Summarise this article or text for me in one paragraph', icon: <Bars3BottomLeftIcon className="w-5 h-5 text-gray-400" /> },
-  { text: 'How does AI work in a technical capacity', icon: <Cog6ToothIcon className="w-5 h-5 text-gray-400" /> },
-];
-
-const InitialContent: React.FC<{ onPromptClick: (prompt: string) => void; isVisible: boolean }> = ({ onPromptClick, isVisible }) => {
-  const [prompts, setPrompts] = useState(PROMPTS);
-  const handleRefresh = () => setPrompts([...prompts].sort(() => Math.random() - 0.5));
-
-  return (
-    <div className={`text-center transition-all duration-500 ease-in-out overflow-hidden ${isVisible ? 'max-h-[40rem] opacity-100' : 'max-h-0 opacity-0'}`}>
-      <h1 className="text-4xl md:text-5xl font-bold text-gray-200">Hi there!</h1>
-      <h2 className="text-3xl md:text-4xl font-bold text-gray-400 mt-2 mb-6">What would you like to know?</h2>
-      <p className="text-gray-500 mb-8">Use one of the most common prompts below or use your own to begin</p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-left">
-        {prompts.map((prompt, index) => (
-          <button key={index} onClick={() => onPromptClick(prompt.text)} className="p-4 bg-gray-800/50 border border-white/10 rounded-lg hover:bg-gray-700/70 transition-colors group">
-            <p className="text-sm text-gray-300 group-hover:text-white transition-colors flex-grow">{prompt.text}</p>
-            <div className="pt-4 mt-auto text-gray-500">{prompt.icon}</div>
-          </button>
-        ))}
-      </div>
-      <button onClick={handleRefresh} className="flex items-center gap-2 text-gray-400 hover:text-white mx-auto text-sm transition-colors">
-        <ArrowPathIcon className="w-4 h-4" /> Refresh Prompts
-      </button>
-    </div>
-  );
-};
-
-const UserMessageContent: React.FC<{ text: string }> = ({ text }) => {
-  const content = useMemo(() => {
-    const parts = text.split(/(@\[[^\]]+\])/g);
-    return parts.map((part, index) => {
-      const match = part.match(/@\[([^\]]+)\]/);
-      if (match && match[1]) {
-        const agentName = match[1];
-        return <strong key={index} className="font-semibold text-cyan-300">{agentName}</strong>;
-      }
-      return <React.Fragment key={index}>{part}</React.Fragment>;
-    });
-  }, [text]);
-
-  return <p className="text-white whitespace-pre-wrap">{content}</p>;
 };
 
 // --- Main ChatView Component ---
