@@ -116,6 +116,11 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       );
     }
   }, [agentSearchQuery, agents, showAgentSuggestions]);
+  
+  const handleDeselectAgent = () => {
+    const defaultAgent = agents.find(agent => agent.id === 'ChatAgent') || agents[0] || null;
+    setActiveAgent(defaultAgent);
+  };
 
   const handleSend = async () => {
     if (messageToSend.trim() === '' && attachments.length === 0) return;
@@ -502,8 +507,17 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <InitialContent onPromptClick={handlePromptClick} isVisible={isInitialView} />
           <div className={`relative mt-4 transition-all duration-700 ease-in-out`}>
             {activeAgent && !isInitialView && (
-              <div className="absolute bottom-full mb-2 left-0 text-xs text-gray-400 bg-gray-900/80 px-3 py-1.5 rounded-t-lg border-t border-l border-r border-white/10 shadow-lg z-10">
-                Talking to: <span className="font-bold text-cyan-400">{activeAgent.name}</span>
+              <div className="group absolute bottom-full mb-2 left-0 flex items-center gap-2 text-xs text-gray-400 bg-gray-900/80 pl-3 pr-2 py-1.5 rounded-t-lg border-t border-l border-r border-white/10 shadow-lg z-10">
+                <span>Talking to: <span className="font-bold text-cyan-400">{activeAgent.name}</span></span>
+                {activeAgent.id !== 'ChatAgent' && (
+                  <button
+                    onClick={handleDeselectAgent}
+                    className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white transition-opacity"
+                    aria-label="Deselect agent and default to Chat Agent"
+                  >
+                    <XMarkIcon className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
             {showAgentSuggestions && filteredAgents.length > 0 && (
