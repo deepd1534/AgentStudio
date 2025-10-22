@@ -121,7 +121,7 @@ const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ 
   return (
     <div className="text-white break-words">
       {messageParts.map((part, index) => part.type === 'code' ? <CodeBlock key={index} language={part.language || 'code'} content={part.content} /> : <TextContent key={index} content={part.content} />)}
-      {isStreaming && <ThinkingIndicator />}
+      {isStreaming && text.length === 0 && <ThinkingIndicator />}
     </div>
   );
 };
@@ -234,10 +234,43 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           part.split('\n').forEach(line => { if (line.startsWith('event: ')) eventName = line.substring('event: '.length).trim(); });
           
           if (dataLines.length > 0) {
+// FIX: Safely parse SSE JSON and handle potential image attachments from the bot to prevent type errors.
             try {
-              const jsonData = JSON.parse(dataLines.join('\n'));
-              if (eventName === 'RunContent') {
-                setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, text: msg.text + (jsonData.content || '') } : msg));
+              const jsonData: unknown = JSON.parse(dataLines.join('\n'));
+              
+              if (eventName === 'RunContent' && typeof jsonData === 'object' && jsonData !== null && 'content' in jsonData) {
+                const contentData = jsonData as { content: any; type?: string; mime_type?: string; filename?: string };
+            
+                if (contentData.type === 'image' && typeof contentData.content === 'string' && typeof contentData.mime_type === 'string') {
+                  const b64toFile = async () => {
+                    const res = await fetch(`data:${contentData.mime_type};base64,${contentData.content}`);
+                    const blob = await res.blob();
+                    return new File([blob], contentData.filename || 'image.png', { type: contentData.mime_type });
+                  }
+            
+                  b64toFile().then(file => {
+                    const previewUrl = URL.createObjectURL(file);
+                    attachmentUrlsRef.current.add(previewUrl);
+            
+                    const newAttachment: Attachment = {
+                      id: crypto.randomUUID(),
+                      file: file,
+                      previewUrl: previewUrl,
+                    };
+            
+                    setMessages(prev => prev.map(msg => {
+                      if (msg.id === botMessageId) {
+                        return {
+                          ...msg,
+                          attachments: [...(msg.attachments || []), newAttachment]
+                        };
+                      }
+                      return msg;
+                    }));
+                  });
+                } else if (typeof contentData.content === 'string') {
+                  setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, text: msg.text + (contentData.content || '') } : msg));
+                }
               } else if (eventName === 'RunCompleted') {
                 setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, isStreaming: false } : msg));
                 return; // End stream processing
@@ -321,10 +354,31 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <Avatar><AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" /><AvatarFallback>U</AvatarFallback></Avatar>
             </div>
           ) : (
+// FIX: Render attachments for bot messages.
             <div key={msg.id} className="animate-fade-in w-full">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10"><BotIcon className="w-6 h-6 text-cyan-300" /></div>
-                <div className="flex-1 pt-2 min-w-0"><BotMessageContent text={msg.text} isStreaming={msg.isStreaming} /></div>
+                <div className="flex-1 pt-2 min-w-0">
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="mb-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {msg.attachments.map(att => 
+                        <div key={att.id} className="bg-gray-800/70 border border-white/10 rounded-lg overflow-hidden relative group">
+                          {att.previewUrl ? 
+                            <img src={att.previewUrl} alt={att.file.name} className="w-full h-full object-cover aspect-square" /> : 
+                            <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center">
+                                <div className="flex-1 min-w-0 text-center">
+                                  <DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" />
+                                  <p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p>
+                                  <p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p>
+                                </div>
+                            </div>
+                          }
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {(msg.text || msg.isStreaming) && <BotMessageContent text={msg.text} isStreaming={msg.isStreaming} />}
+                </div>
               </div>
             </div>
           ))}
@@ -332,7 +386,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className={`w-full max-w-3xl mx-auto px-4 pb-4 transition-all duration-700 ease-in-out`}>
+        <div className={`w-full ${isInitialView ? 'max-w-3xl mx-auto' : ''} px-4 pb-4 transition-all duration-700 ease-in-out`}>
           <InitialContent onPromptClick={handlePromptClick} isVisible={isInitialView} />
           <div className={`relative mt-4 transition-all duration-700 ease-in-out`}>
             {attachments.length > 0 && (
