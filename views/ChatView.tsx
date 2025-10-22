@@ -20,6 +20,12 @@ interface Attachment {
   previewUrl?: string;
 }
 
+interface Agent {
+  id: string;
+  name: string;
+}
+
+
 declare global {
   interface Window {
     hljs: any;
@@ -167,15 +173,21 @@ const InitialContent: React.FC<{ onPromptClick: (prompt: string) => void; isVisi
 const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [sessionId, setSessionId] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  const [messageToSend, setMessageToSend] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [characterCount, setCharacterCount] = useState(0);
 
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [showAgentSuggestions, setShowAgentSuggestions] = useState(false);
+  const [agentSearchQuery, setAgentSearchQuery] = useState('');
+  const [filteredAgents, setFilteredAgents] = useState<Agent[]>([]);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+
   const isInitialView = messages.length === 0;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
   const attachmentUrlsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -184,24 +196,75 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }, []);
 
   useEffect(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages, isTyping]);
-  useEffect(() => setCharacterCount(input.length), [input]);
 
-  const handleSend = async (messageText?: string | React.MouseEvent<HTMLButtonElement>) => {
-    const textToSend = typeof messageText === 'string' ? messageText : input;
-    if (textToSend.trim() === '' && attachments.length === 0) return;
+  const updateMessageToSendState = () => {
+    if (!inputRef.current) {
+        setMessageToSend('');
+        setCharacterCount(0);
+        return;
+    }
+    const nodes = Array.from(inputRef.current.childNodes);
+    let text = '';
+    
+    for (const node of nodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            text += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as HTMLElement;
+            if (el.dataset.agentName) {
+                text += `@[${el.dataset.agentName}]`;
+            } else if (el.tagName === 'BR') {
+                text += '\n';
+            } else {
+                text += el.textContent;
+            }
+        }
+    }
 
-    const userMessage: Message = { id: crypto.randomUUID(), text: textToSend, sender: 'user', attachments };
+    const cleanText = text.replace(/\u00A0/g, ' ').trim();
+    setMessageToSend(cleanText);
+    setCharacterCount(cleanText.length);
+  };
+
+  const fetchAgents = async () => {
+    try {
+      const response = await fetch('http://localhost:7777/agents');
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data: Agent[] = await response.json();
+      setAgents(data);
+    } catch (error) {
+      console.error("Failed to fetch agents:", error);
+    }
+  };
+  
+  useEffect(() => {
+    if (showAgentSuggestions) {
+      const lowercasedQuery = agentSearchQuery.toLowerCase();
+      setFilteredAgents(
+        agents.filter(agent =>
+          agent.name.toLowerCase().includes(lowercasedQuery) ||
+          agent.id.toLowerCase().includes(lowercasedQuery)
+        )
+      );
+    }
+  }, [agentSearchQuery, agents, showAgentSuggestions]);
+
+  const handleSend = async () => {
+    if (messageToSend.trim() === '' && attachments.length === 0) return;
+
+    const userMessage: Message = { id: crypto.randomUUID(), text: messageToSend, sender: 'user', attachments };
     const botMessageId = crypto.randomUUID();
     const botMessagePlaceholder: Message = { id: botMessageId, text: '', sender: 'bot', isStreaming: true };
 
     setMessages(prev => [...prev, userMessage, botMessagePlaceholder]);
-    setInput('');
+    if (inputRef.current) inputRef.current.innerHTML = '';
+    updateMessageToSendState();
     setAttachments([]);
     setIsTyping(true);
 
     const formData = new FormData();
     formData.append('agent_id', 'ChatAgent');
-    formData.append('message', textToSend);
+    formData.append('message', messageToSend);
     formData.append('stream', 'true');
     formData.append('session_id', sessionId);
     formData.append('user_id', 'deep');
@@ -234,12 +297,11 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           part.split('\n').forEach(line => { if (line.startsWith('event: ')) eventName = line.substring('event: '.length).trim(); });
           
           if (dataLines.length > 0) {
-// FIX: Safely parse SSE JSON and handle potential image attachments from the bot to prevent type errors.
             try {
               const jsonData: unknown = JSON.parse(dataLines.join('\n'));
               
-              if (eventName === 'RunContent' && typeof jsonData === 'object' && jsonData !== null && 'content' in jsonData) {
-                const data = jsonData as Record<string, unknown>;
+              if (eventName === 'RunContent' && typeof jsonData === 'object' && jsonData !== null) {
+                const data = jsonData as Record<string, any>;
             
                 if (data.type === 'image' && typeof data.content === 'string' && typeof data.mime_type === 'string') {
                   const content = data.content;
@@ -292,16 +354,163 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setIsTyping(false);
     }
   };
+  
+  const createAgentChip = (agent: Agent): HTMLElement => {
+      const chip = document.createElement('span');
+      chip.className = "inline-flex items-center gap-2 bg-blue-600/50 text-blue-200 rounded-lg px-2 py-1 text-sm font-semibold mx-0.5 align-middle";
+      chip.contentEditable = 'false';
+      chip.dataset.agentId = agent.id;
+      chip.dataset.agentName = agent.name;
+      
+      const text = document.createElement('span');
+      text.innerText = agent.name;
+      chip.appendChild(text);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = "text-blue-300 hover:text-white focus:outline-none";
+      removeBtn.innerHTML = '&times;';
+      removeBtn.type = "button";
+      removeBtn.onclick = () => {
+        chip.remove();
+        inputRef.current?.focus();
+        inputRef.current?.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+      };
+      chip.appendChild(removeBtn);
+
+      return chip;
+  };
 
   const handlePromptClick = (prompt: string) => {
-    setInput(prompt);
+    if(inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.innerText = prompt;
+        const range = document.createRange();
+        const sel = window.getSelection();
+        if (sel) {
+          range.selectNodeContents(inputRef.current);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+    }
+    updateMessageToSendState();
+  };
+
+  const handleAgentSelect = (agent: Agent) => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !inputRef.current?.contains(sel.anchorNode)) return;
+
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    const offset = range.startOffset;
+
+    if (node.nodeType !== Node.TEXT_NODE) return;
+
+    const textBefore = node.textContent?.substring(0, offset) || '';
+    const atMatch = textBefore.match(/@\w*$/);
+    if (!atMatch) return;
+
+    const startIndex = atMatch.index!;
+    
+    const mentionRange = document.createRange();
+    mentionRange.setStart(node, startIndex);
+    mentionRange.setEnd(node, offset);
+    mentionRange.deleteContents();
+    
+    const chip = createAgentChip(agent);
+    mentionRange.insertNode(chip);
+    
+    const spaceNode = document.createTextNode('\u00A0');
+    chip.parentNode!.insertBefore(spaceNode, chip.nextSibling);
+
+    range.setStartAfter(spaceNode);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    setShowAgentSuggestions(false);
+    updateMessageToSendState();
     inputRef.current?.focus();
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (showAgentSuggestions && filteredAgents.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveSuggestionIndex(prev => (prev + 1) % filteredAgents.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveSuggestionIndex(prev => (prev - 1 + filteredAgents.length) % filteredAgents.length);
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleAgentSelect(filteredAgents[activeSuggestionIndex]);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowAgentSuggestions(false);
+      }
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    } else if (e.key === 'Backspace') {
+        const sel = window.getSelection();
+        if (!sel || !sel.isCollapsed) return;
+        
+        const range = sel.getRangeAt(0);
+        const node = range.startContainer;
+        const offset = range.startOffset;
+
+        if (offset === 0 && node.previousSibling) {
+          const prevNode = node.previousSibling;
+          if (prevNode.nodeType === Node.ELEMENT_NODE && (prevNode as HTMLElement).dataset.agentName) {
+            e.preventDefault();
+            // FIX: Property 'remove' does not exist on type 'Node'. Replaced with parentNode.removeChild.
+            prevNode.parentNode?.removeChild(prevNode);
+            updateMessageToSendState();
+          }
+        }
+        else if (node.nodeType === Node.TEXT_NODE && offset === 1 && node.textContent === '\u00A0' && node.previousSibling) {
+          const prevNode = node.previousSibling;
+          if (prevNode.nodeType === Node.ELEMENT_NODE && (prevNode as HTMLElement).dataset.agentName) {
+            e.preventDefault();
+            // FIX: Property 'remove' does not exist on type 'Node'. Replaced with parentNode.removeChild.
+            prevNode.parentNode?.removeChild(prevNode);
+            // FIX: Property 'remove' does not exist on type 'Node'. Replaced with parentNode.removeChild.
+            node.parentNode?.removeChild(node);
+            updateMessageToSendState();
+          }
+        }
+    }
   };
   
+  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) {
+        setShowAgentSuggestions(false);
+    } else {
+        const range = sel.getRangeAt(0);
+        const node = range.startContainer;
+        const offset = range.startOffset;
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            const textBeforeCursor = node.textContent?.substring(0, offset) || '';
+            const atMatch = textBeforeCursor.match(/(?:\s|^)@(\w*)$/);
+
+            if (atMatch) {
+                if (!agents.length) fetchAgents();
+                const query = atMatch[1];
+                setAgentSearchQuery(query);
+                setShowAgentSuggestions(true);
+                setActiveSuggestionIndex(0);
+            } else {
+                setShowAgentSuggestions(false);
+            }
+        } else {
+            setShowAgentSuggestions(false);
+        }
+    }
+    updateMessageToSendState();
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files).map(file => {
@@ -392,16 +601,42 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <div className={`w-full ${isInitialView ? 'max-w-3xl mx-auto' : ''} px-4 pb-4 transition-all duration-700 ease-in-out`}>
           <InitialContent onPromptClick={handlePromptClick} isVisible={isInitialView} />
           <div className={`relative mt-4 transition-all duration-700 ease-in-out`}>
+            {showAgentSuggestions && filteredAgents.length > 0 && (
+              <div className="absolute bottom-full mb-2 w-full max-w-md bg-gray-900/80 backdrop-blur-md border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 animate-fade-in">
+                <ul className="max-h-60 overflow-y-auto custom-scrollbar">
+                  {filteredAgents.map((agent, index) => (
+                    <li key={agent.id}>
+                      <button
+                        onClick={() => handleAgentSelect(agent)}
+                        onMouseEnter={() => setActiveSuggestionIndex(index)}
+                        className={`w-full text-left px-4 py-3 transition-colors text-white ${activeSuggestionIndex === index ? 'bg-blue-500/30' : 'hover:bg-white/10'}`}
+                      >
+                        <span className="font-bold">{agent.name}</span>
+                        <span className="text-sm text-gray-400 ml-2">({agent.id})</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2 p-2 bg-gray-800/50 border border-white/10 rounded-t-lg">
                 {attachments.map(att => <div key={att.id} className="group relative bg-gray-700/50 border border-white/10 rounded-lg animate-fade-in overflow-hidden w-24 h-24">{att.previewUrl ? <img src={att.previewUrl} alt={att.file.name} title={att.file.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center"><DocumentIcon className="w-8 h-8 text-gray-300" /><p className="text-white text-xs font-medium truncate mt-2 w-full" title={att.file.name}>{att.file.name}</p></div>}<div className="absolute bottom-0 left-0 w-full bg-black/60 p-1 text-center backdrop-blur-sm"><p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p></div><button onClick={() => handleRemoveAttachment(att.id)} className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-white transition-all" aria-label={`Remove ${att.file.name}`}><XMarkIcon className="w-3.5 h-3.5" /></button></div>)}
               </div>
             )}
             <div className={`bg-gray-800/80 border border-white/10 overflow-hidden transition-all duration-300 ${attachments.length > 0 ? 'rounded-b-lg' : 'rounded-lg'} ${isInitialView ? 'shadow-2xl shadow-blue-500/10' : ''}`}>
-              <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyPress} placeholder="Ask whatever you want..." className={`w-full bg-transparent p-4 resize-none focus:outline-none custom-scrollbar transition-all duration-500 ease-in-out ${isInitialView ? 'h-28' : 'h-14'}`} style={{maxHeight: '150px'}} />
+              <div 
+                ref={inputRef}
+                contentEditable
+                onInput={handleInput} 
+                onKeyDown={handleKeyDown} 
+                data-placeholder="Ask whatever you want..."
+                className={`chat-input w-full bg-transparent p-4 focus:outline-none custom-scrollbar transition-all duration-500 ease-in-out text-white ${isInitialView ? 'h-28' : 'h-14'} min-h-[56px]`} 
+                style={{maxHeight: '150px'}} 
+              />
               <div className="flex justify-between items-center p-2 border-t border-white/10">
                 <div className="flex items-center gap-1"><input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple /><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors p-2 rounded-md"><PaperClipIcon className="w-5 h-5" /> <span className="hidden sm:inline">Add Attachment</span></button></div>
-                <div className="flex items-center gap-3"><span className="text-xs text-gray-500">{characterCount}/1000</span><button onClick={handleSend} disabled={(input.trim() === '' && attachments.length === 0) || isTyping} className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" aria-label="Send message"><PaperAirplaneIcon className="w-5 h-5 text-white" /></button></div>
+                <div className="flex items-center gap-3"><span className="text-xs text-gray-500">{characterCount}/1000</span><button onClick={() => handleSend()} disabled={(messageToSend.trim() === '' && attachments.length === 0) || isTyping} className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" aria-label="Send message"><PaperAirplaneIcon className="w-5 h-5 text-white" /></button></div>
               </div>
             </div>
           </div>
