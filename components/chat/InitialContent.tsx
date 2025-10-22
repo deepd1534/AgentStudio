@@ -25,9 +25,9 @@ const InitialContent: React.FC<{ onPromptClick: (prompt: string) => void; isVisi
       <p className="text-gray-500 mb-8">Use one of the most common prompts below or use your own to begin</p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-left">
         {prompts.map((prompt, index) => (
-          <button key={index} onClick={() => onPromptClick(prompt.text)} className="p-4 bg-gray-800/50 border border-white/10 rounded-lg hover:bg-gray-700/70 transition-colors group">
+          <button key={index} onClick={() => onPromptClick(prompt.text)} className="flex flex-col p-4 bg-gray-800/50 border border-white/10 rounded-lg hover:bg-gray-700/70 transition-colors group">
             <p className="text-sm text-gray-300 group-hover:text-white transition-colors flex-grow">{prompt.text}</p>
-            <div className="pt-4 mt-auto text-gray-500">{prompt.icon}</div>
+            <div className="pt-4 mt-auto text-gray-500 flex justify-center">{prompt.icon}</div>
           </button>
         ))}
       </div>

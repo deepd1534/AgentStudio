@@ -87,6 +87,12 @@
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.7); /* focus:ring-2 focus:ring-blue-500 */
         border-radius: 4px;
       }
+      /* Chat Input Placeholder */
+      .chat-input:empty::before {
+        content: attr(data-placeholder);
+        color: #6b7280; /* gray-500 */
+        pointer-events: none;
+      }
       /* Markdown content styles */
       .markdown-content > :first-child { margin-top: 0; }
       .markdown-content > :last-child { margin-bottom: 0; }

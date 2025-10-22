@@ -1,19 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import CodeBlock from './CodeBlock';
 import ThinkingIndicator from './ThinkingIndicator';
 import { parseMarkdown, TextContent } from './MarkdownRenderer';
 
 const BotMessageContent: React.FC<{ text: string; isStreaming?: boolean }> = ({ text, isStreaming }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  useEffect(() => {
-    if (!isStreaming) { setDisplayedText(text); return; }
-    if (displayedText.length < text.length) {
-      const timeoutId = setTimeout(() => setDisplayedText(text.slice(0, Math.min(text.length, displayedText.length + 50))), 5);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [text, displayedText, isStreaming]);
-
-  const messageParts = useMemo(() => parseMarkdown(displayedText), [displayedText]);
+  const messageParts = useMemo(() => parseMarkdown(text), [text]);
 
   return (
     <div className="text-white break-words">

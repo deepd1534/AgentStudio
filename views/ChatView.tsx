@@ -581,7 +581,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 onInput={handleInput} 
                 onKeyDown={handleKeyDown} 
                 data-placeholder="Ask whatever you want..."
-                className={`chat-input w-full bg-transparent p-4 focus:outline-none custom-scrollbar transition-all duration-500 ease-in-out text-white ${isInitialView ? 'h-28' : 'h-14'} min-h-[56px]`} 
+                className={`chat-input w-full bg-transparent p-4 focus:outline-none custom-scrollbar transition-all duration-500 ease-in-out text-white ${isInitialView ? 'h-20' : 'h-14'} min-h-[56px]`} 
                 style={{maxHeight: '150px'}} 
               />
               <div className="flex justify-between items-center p-2 border-t border-white/10">
