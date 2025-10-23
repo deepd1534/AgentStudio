@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChatSession } from '../../types';
-import { ArrowLeftIcon, EditIcon, SidebarCollapseIcon } from '../IconComponents';
+import { ArrowLeftIcon, ChatBubbleLeftIcon, EditIcon, SidebarCollapseIcon, TrashIcon } from '../IconComponents';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -8,6 +8,7 @@ interface ChatSidebarProps {
   isNewSession: boolean;
   onSelectSession: (sessionId: string) => void;
   onNewSession: () => void;
+  onDeleteSession: (sessionId: string, e: React.MouseEvent) => void;
   onBack: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
@@ -23,7 +24,7 @@ const Tooltip: React.FC<{ text: string, children: React.ReactNode }> = ({ text, 
 );
 
 
-const ChatSidebar: React.FC<ChatSidebarProps> = ({ sessions, currentSessionId, isNewSession, onSelectSession, onNewSession, onBack, isCollapsed, onToggleCollapse }) => {
+const ChatSidebar: React.FC<ChatSidebarProps> = ({ sessions, currentSessionId, isNewSession, onSelectSession, onNewSession, onDeleteSession, onBack, isCollapsed, onToggleCollapse }) => {
   return (
     <div className="w-full h-full flex flex-col p-4 text-white bg-black/30 border-r border-white/10 transition-all duration-300">
       {/* Header */}
@@ -34,8 +35,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ sessions, currentSessionId, i
                 Agent Studio
             </button>
         )}
-        <button onClick={onToggleCollapse} className="text-gray-400 hover:text-white transition-colors p-1" title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
-            <SidebarCollapseIcon className={`w-6 h-6 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} />
+        <button onClick={onToggleCollapse} className="text-gray-400 hover:text-white transition-colors p-2" title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
+            <SidebarCollapseIcon className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} />
         </button>
       </div>
       
@@ -58,26 +59,33 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ sessions, currentSessionId, i
 
         {!isCollapsed && <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider px-2 mb-3">Conversations</h2>}
         
-        {!isCollapsed && (
-          <div className="flex-1 overflow-y-auto custom-scrollbar transition-all duration-300 -mr-2 pr-2">
-            <ul className="space-y-1">
-              {sessions.map(session => (
-                <li key={session.session_id}>
-                  <button 
-                      onClick={() => onSelectSession(session.session_id)} 
-                      className={`w-full text-left flex py-2.5 px-3 rounded-lg transition-colors group ${
-                          !isNewSession && session.session_id === currentSessionId 
-                          ? 'bg-white/10 text-white' 
-                          : 'text-gray-400 hover:bg-white/10 hover:text-gray-200'
-                      }`}
-                  >
-                      <span className="flex-1 truncate text-sm">{session.session_name}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <div className="flex-1 overflow-y-auto custom-scrollbar transition-all duration-300 -mr-2 pr-2">
+            {isCollapsed ? (
+                null
+            ) : (
+                <ul className="space-y-1">
+                    {sessions.map(session => (
+                        <li key={session.session_id}>
+                        <button 
+                            onClick={() => onSelectSession(session.session_id)}
+                            className={`w-full text-left flex items-center p-2.5 rounded-lg transition-colors group ${currentSessionId === session.session_id && !isNewSession ? 'bg-blue-500/30' : 'hover:bg-white/10'}`}
+                        >
+                            <span className="flex-1 truncate text-sm">{session.session_name}</span>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={(e) => onDeleteSession(session.session_id, e)}
+                                    className="p-1 rounded-md text-gray-500 hover:text-red-400 hover:bg-white/10"
+                                    title="Delete chat"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
       </div>
     </div>
   );

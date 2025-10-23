@@ -107,13 +107,14 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   return (
     <div className="grid h-screen max-h-screen w-full bg-black/20 backdrop-blur-lg overflow-hidden transition-all duration-300"
-      style={{ gridTemplateColumns: isSidebarCollapsed ? '80px 1fr' : '288px 1fr' }}>
+      style={{ gridTemplateColumns: isSidebarCollapsed ? '80px 1fr' : '320px 1fr' }}>
       <ChatSidebar
         sessions={sessions}
         currentSessionId={sessionId}
         isNewSession={isNewSession}
         onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}
+        onDeleteSession={handleDeleteSession}
         onBack={onBack}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -123,7 +124,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <header className="flex items-center justify-center p-4 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center gap-4">
               <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full"><BrainCircuitIcon className="w-6 h-6 text-white" /></div>
-              <h1 className="text-xl font-bold text-white">Agent Studio</h1>
+              <h1 className="text-xl font-bold text-white">Agent Chat</h1>
           </div>
         </header>
         

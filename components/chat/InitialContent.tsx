@@ -20,7 +20,7 @@ const InitialContent: React.FC<{ onPromptClick: (prompt: string) => void; isVisi
 
   return (
     <div className={`text-center transition-all duration-500 ease-in-out overflow-hidden ${isVisible ? 'max-h-[40rem] opacity-100' : 'max-h-0 opacity-0'}`}>
-      <h1 className="text-4xl md:text-5xl font-bold text-gray-200">Hi there!</h1>
+      <h1 className="text-4xl md:text-5xl font-bold text-gray-200">Hi Deep!</h1>
       <h2 className="text-3xl md:text-4xl font-bold text-gray-400 mt-2 mb-6">What would you like to know?</h2>
       <p className="text-gray-500 mb-8">Use one of the most common prompts below or use your own to begin</p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-left">
