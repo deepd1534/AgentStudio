@@ -105,7 +105,7 @@ const BlogAgentWorkspace: React.FC<{ onBack: () => void; onGoToSaved: () => void
     console.log('Sending request:', JSON.stringify(requestBody, null, 2));
 
     try {
-      const response = await fetch('http://localhost:3000/blog-agent', {
+      const response = await fetch('/api/blog-agent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -63,6 +63,13 @@ export interface SavedBlog {
 }
 
 // Chat Types
+export interface ChatSession {
+  session_id: string;
+  session_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Message {
   id: string;
   text: string;

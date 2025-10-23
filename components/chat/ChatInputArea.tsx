@@ -1,7 +1,7 @@
 import React from 'react';
 import { Agent, Attachment } from '../../types';
 import { XMarkIcon, PaperClipIcon, StopIcon, PaperAirplaneIcon, DocumentIcon } from '../IconComponents';
-import { formatFileSize } from '../../utils/chatUtils';
+import { formatFileSize, getAgentColorClasses } from '../../utils/chatUtils';
 
 interface ChatInputAreaProps {
   isInitialView: boolean;
@@ -37,7 +37,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     <div className={`relative mt-4 transition-all duration-700 ease-in-out`}>
       {activeAgent && !isInitialView && (
         <div className="group absolute bottom-full mb-2 left-0 flex items-center gap-2 text-xs text-gray-400 bg-gray-900/80 pl-3 pr-2 py-1.5 rounded-t-lg border-t border-l border-r border-white/10 shadow-lg z-10">
-          <span>Talking to: <span className="font-bold text-cyan-400">{activeAgent.name}</span></span>
+          <span>Talking to: <span className={`font-bold ${getAgentColorClasses(activeAgent.id).text}`}>{activeAgent.name}</span></span>
           {activeAgent.id !== 'ChatAgent' && (
             <button
               onClick={onDeselectAgent}
