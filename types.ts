@@ -61,3 +61,24 @@ export interface SavedBlog {
   summary: string;
   status: BlogStatus;
 }
+
+// Chat Types
+export interface Message {
+  id: string;
+  text: string;
+  sender: 'user' | 'bot';
+  isStreaming?: boolean;
+  attachments?: Attachment[];
+  agent?: Agent;
+}
+
+export interface Attachment {
+  id:string;
+  file: File;
+  previewUrl?: string;
+}
+
+export interface Agent {
+  id: string;
+  name: string;
+}
