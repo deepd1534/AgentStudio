@@ -148,11 +148,10 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <button
                     onClick={() => handleRegenerate(msg)}
                     disabled={isGenerating}
-                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1 rounded-full text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Regenerate response"
                 >
-                    <ArrowPathIcon className="w-3.5 h-3.5" />
-                    <span>Regenerate</span>
+                    <ArrowPathIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -187,7 +186,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     )}
                     {(msg.text || msg.isStreaming) && <BotMessageContent text={msg.text} isStreaming={msg.isStreaming} />}
                      {msg.versions && msg.versions.length > 1 && !msg.isStreaming && (
-                      <div className="flex items-center gap-4 mt-2 pl-1">
+                      <div className="flex items-center gap-1 mt-2">
                         <button
                           onClick={() => handleVersionChange(msg.id, msg.activeVersionIndex! - 1)}
                           disabled={msg.activeVersionIndex === 0}
