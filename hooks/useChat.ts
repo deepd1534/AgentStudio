@@ -226,7 +226,16 @@ export const useChat = () => {
     }
     
     const userMessage: Message = { id: crypto.randomUUID(), text: userMessageText, sender: 'user', attachments };
-    const botMessagePlaceholders: Message[] = agentsToSendTo.map(agent => ({ id: crypto.randomUUID(), text: '', sender: 'bot', isStreaming: true, agent }));
+    const botMessagePlaceholders: Message[] = agentsToSendTo.map(agent => ({ 
+      id: crypto.randomUUID(), 
+      text: '', 
+      sender: 'bot', 
+      isStreaming: true, 
+      agent,
+      userMessageId: userMessage.id,
+      versions: [{ text: '', attachments: [] }],
+      activeVersionIndex: 0,
+    }));
 
     setMessages(prev => [...prev, userMessage, ...botMessagePlaceholders]);
     if (inputRef.current) inputRef.current.innerHTML = '';
@@ -286,7 +295,22 @@ export const useChat = () => {
                         setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, attachments: [...(msg.attachments || []), { id: crypto.randomUUID(), file, previewUrl }] } : msg));
                       });
                     } else if (typeof data.content === 'string') {
-                      setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, text: msg.text + data.content } : msg));
+                      setMessages(prev => prev.map(msg => {
+                          if (msg.id === botMessageId) {
+                            const newVersions = [...(msg.versions || [])];
+                            const lastVersionIndex = newVersions.length - 1;
+                            newVersions[lastVersionIndex] = {
+                              ...newVersions[lastVersionIndex],
+                              text: newVersions[lastVersionIndex].text + data.content
+                            };
+                            return {
+                              ...msg,
+                              text: newVersions[lastVersionIndex].text,
+                              versions: newVersions,
+                            };
+                          }
+                          return msg;
+                        }));
                     }
                   } else if (eventName === 'RunCompleted') {
                     setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, isStreaming: false } : msg));
@@ -305,6 +329,147 @@ export const useChat = () => {
         }
     });
   }, [messageToSend, attachments, agents, activeAgent, sessionId, updateMessageToSendState]);
+
+  const handleRegenerate = useCallback(async (messageToRegenerate: Message) => {
+    if (isGenerating) return;
+
+    const userMessageId = messageToRegenerate.id;
+    const userMessageText = messageToRegenerate.text;
+    const messageAttachments = messageToRegenerate.attachments || [];
+    const cleanMessage = userMessageText.replace(/@\[[^\]]+\]\s*/g, '').trim();
+
+    let agentsToSendTo: Agent[] = [];
+    const agentNameMatches = [...userMessageText.matchAll(/@\[([^\]]+)\]/g)];
+    
+    if (agentNameMatches.length > 0) {
+      agentsToSendTo = agentNameMatches.map(match => agents.find(agent => agent.name === match[1])).filter(Boolean) as Agent[];
+    } else if (activeAgent) {
+      agentsToSendTo.push(activeAgent);
+    }
+    
+    if (agentsToSendTo.length === 0) return;
+
+    const botMessagesToUpdate = messages.filter(m => m.sender === 'bot' && m.userMessageId === userMessageId && agentsToSendTo.some(a => a.id === m.agent?.id));
+
+    if (botMessagesToUpdate.length === 0) return;
+
+    setMessages(prev => prev.map(msg => {
+      if (botMessagesToUpdate.some(bm => bm.id === msg.id)) {
+        const newVersionIndex = msg.versions ? msg.versions.length : 1;
+        const newVersions = msg.versions ? [...msg.versions, { text: '' }] : [{ text: msg.text, attachments: msg.attachments }, { text: '' }];
+        
+        return {
+          ...msg,
+          isStreaming: true,
+          versions: newVersions,
+          activeVersionIndex: newVersionIndex,
+          text: '',
+          attachments: [],
+        };
+      }
+      return msg;
+    }));
+
+    if (agentsToSendTo.length === 1) abortControllerRef.current = new AbortController();
+    else { setCurrentRunId(null); abortControllerRef.current = null; }
+
+    botMessagesToUpdate.forEach(async (botMsg) => {
+        const botMessageId = botMsg.id;
+        const agent = botMsg.agent;
+        if (!agent) return;
+
+        const formData = new FormData();
+        formData.append('agent_id', agent.id);
+        formData.append('message', cleanMessage);
+        formData.append('stream', 'true');
+        formData.append('session_id', sessionId);
+        formData.append('user_id', 'deep');
+        messageAttachments.forEach(attachment => formData.append('files', attachment.file));
+
+        try {
+          const response = await fetch(`http://localhost:7777/agents/${agent.id}/runs`, { method: 'POST', body: formData, signal: agentsToSendTo.length === 1 ? abortControllerRef.current?.signal : undefined });
+          if (!response.ok || !response.body) throw new Error(`HTTP error! status: ${response.status}`);
+          
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          const processStream = async () => {
+            const { done, value } = await reader.read();
+            if (done) {
+              setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, isStreaming: false } : msg));
+              if (agentsToSendTo.length === 1) setCurrentRunId(null);
+              return;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop() || '';
+
+            for (const part of parts) {
+                if (!part.trim()) continue;
+                let eventName = 'message';
+                const dataLines = part.split('\n').filter(line => line.startsWith('data: ')).map(line => line.substring('data: '.length));
+                part.split('\n').forEach(line => { if (line.startsWith('event: ')) eventName = line.substring('event: '.length).trim(); });
+                
+                if (dataLines.length > 0) {
+                    try {
+                    const jsonData: unknown = JSON.parse(dataLines.join('\n'));
+                    if (eventName === 'RunStarted' && typeof jsonData === 'object' && jsonData !== null) { if ((jsonData as { run_id?: string }).run_id && agentsToSendTo.length === 1) setCurrentRunId((jsonData as { run_id: string }).run_id); }
+                    else if (eventName === 'RunContent' && typeof jsonData === 'object' && jsonData !== null) {
+                        const data = jsonData as Record<string, any>;
+                        if (data.type === 'image' && typeof data.content === 'string' && typeof data.mime_type === 'string') {
+                          // Handle image attachment regeneration if needed
+                        } else if (typeof data.content === 'string') {
+                            setMessages(prev => prev.map(msg => {
+                                if (msg.id === botMessageId) {
+                                const newVersions = [...(msg.versions!)];
+                                const activeVersionIndex = msg.activeVersionIndex!;
+                                newVersions[activeVersionIndex] = {
+                                    ...newVersions[activeVersionIndex],
+                                    text: newVersions[activeVersionIndex].text + data.content
+                                };
+                                return {
+                                    ...msg,
+                                    text: newVersions[activeVersionIndex].text,
+                                    versions: newVersions,
+                                };
+                                }
+                                return msg;
+                            }));
+                        }
+                    } else if (eventName === 'RunCompleted') {
+                        setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, isStreaming: false } : msg));
+                        if (agentsToSendTo.length === 1) setCurrentRunId(null);
+                        return;
+                    }
+                    } catch (e) { console.error('Error parsing SSE data:', dataLines.join('\n'), e); }
+                }
+            }
+            await processStream();
+          };
+          await processStream();
+        } catch (error: any) {
+          if (error.name === 'AbortError') setMessages(prev => prev.map(msg => ({ ...msg, isStreaming: false })));
+          else setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, text: `Sorry, an error occurred with agent ${agent.name}.`, isStreaming: false } : msg));
+        }
+    });
+  }, [agents, activeAgent, sessionId, isGenerating, messages]);
+
+  const handleVersionChange = useCallback((messageId: string, newIndex: number) => {
+    setMessages(prevMessages => prevMessages.map(msg => {
+      if (msg.id === messageId && msg.versions && newIndex >= 0 && newIndex < msg.versions.length) {
+        const newVersion = msg.versions[newIndex];
+        return {
+          ...msg,
+          activeVersionIndex: newIndex,
+          text: newVersion.text,
+          attachments: newVersion.attachments || [],
+        };
+      }
+      return msg;
+    }));
+  }, []);
 
   const handlePromptClick = useCallback((prompt: string) => {
     if(inputRef.current) {
@@ -356,6 +521,8 @@ export const useChat = () => {
     setAgentSearchQuery, setFilteredAgents, setActiveSuggestionIndex,
     fetchAgents, updateMessageToSendState, handleDeselectAgent,
     handleNewSession, handleCancel, createAgentChip, handleAgentSelect,
+
     handleSend, handlePromptClick, handleFileChange, handleRemoveAttachment,
+    handleRegenerate, handleVersionChange,
   };
 };

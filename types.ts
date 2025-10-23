@@ -70,6 +70,14 @@ export interface Message {
   isStreaming?: boolean;
   attachments?: Attachment[];
   agent?: Agent;
+
+  // For regeneration and response versioning
+  userMessageId?: string; // Links a bot message to the user message it's responding to
+  versions?: {
+    text: string;
+    attachments?: Attachment[];
+  }[];
+  activeVersionIndex?: number;
 }
 
 export interface Attachment {

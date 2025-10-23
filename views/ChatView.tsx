@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { 
-  ArrowLeftIcon, BotIcon, BrainCircuitIcon, PlusCircleIcon, DocumentIcon
+  ArrowLeftIcon, BotIcon, BrainCircuitIcon, PlusCircleIcon, DocumentIcon, ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon
 } from '../components/IconComponents';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar';
 import BotMessageContent from '../components/chat/BotMessageContent';
@@ -21,13 +21,13 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     handleNewSession, handleDeselectAgent, handleAgentSelect, handleRemoveAttachment,
     updateMessageToSendState, setActiveSuggestionIndex, handleFileChange, handleSend,
-    handleCancel, handlePromptClick, createAgentChip,
-    // Fix: Destructure missing state and setters from useChat hook
+    handleCancel, handlePromptClick, createAgentChip, handleRegenerate,
+    handleVersionChange,
+    
     agents, fetchAgents, setShowAgentSuggestions, setAgentSearchQuery
   } = useChat();
 
   const handleInput = useCallback((e: React.FormEvent<HTMLDivElement>) => {
-    // Fix: Use destructured state and setters directly instead of non-existent useChat.getState()
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) {
         setShowAgentSuggestions(false);
@@ -54,11 +54,9 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         }
     }
     updateMessageToSendState();
-    // Fix: Add dependencies to useCallback to avoid stale state
   }, [updateMessageToSendState, agents, fetchAgents, setAgentSearchQuery, setShowAgentSuggestions, setActiveSuggestionIndex]);
   
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    // Fix: Use destructured state and setters directly instead of non-existent useChat.getState()
     if (showAgentSuggestions && filteredAgents.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -102,12 +100,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           }
         }
     }
-    // Fix: Add dependencies to useCallback to avoid stale state
   }, [showAgentSuggestions, filteredAgents, activeSuggestionIndex, handleAgentSelect, setShowAgentSuggestions, handleSend, updateMessageToSendState, inputRef, setActiveSuggestionIndex]);
-
-
-  // Fix: Removed incorrect assignment to useChat.getState and useChat.setState as useChat is a standard hook, not a Zustand store.
-  // The logic is now handled by properly managing dependencies in useCallback for handlers.
 
   return (
     <div className="relative flex flex-col h-screen max-h-screen w-full bg-black/20 backdrop-blur-lg overflow-hidden">
@@ -139,16 +132,29 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className={`flex-1 flex flex-col transition-all duration-700 ease-in-out overflow-hidden ${isInitialView ? 'justify-center' : 'justify-end'}`}>
         <div className={`space-y-6 overflow-y-auto custom-scrollbar transition-all duration-500 ease-in-out ${isInitialView ? 'opacity-0' : 'flex-1 p-6 opacity-100'}`}>
           {messages.map((msg) => msg.sender === 'user' ? (
-            <div key={msg.id} className="flex items-start gap-4 animate-fade-in justify-end">
-              <div className="max-w-md rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 rounded-br-none overflow-hidden">
-                {msg.attachments && msg.attachments.length > 0 && (
-                  <div className={`p-2 grid grid-cols-2 sm:grid-cols-3 gap-2 ${msg.text.trim() ? 'border-b border-white/20' : ''}`}>
-                    {msg.attachments.map(att => <div key={att.id} className="bg-black/20 rounded-lg overflow-hidden relative group">{att.previewUrl ? <img src={att.previewUrl} alt={att.file.name} className="w-full h-auto object-cover" /> : <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center"><div className="flex-1 min-w-0 text-center"><DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" /><p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p><p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p></div></div>}</div>)}
-                  </div>
-                )}
-                {msg.text.trim() && <div className="p-4"><UserMessageContent text={msg.text} /></div>}
+            <div key={msg.id} className="flex flex-col items-end animate-fade-in group">
+              <div className="flex items-start gap-4 justify-end w-full">
+                <div className="max-w-md rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 rounded-br-none overflow-hidden">
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className={`p-2 grid grid-cols-2 sm:grid-cols-3 gap-2 ${msg.text.trim() ? 'border-b border-white/20' : ''}`}>
+                      {msg.attachments.map(att => <div key={att.id} className="bg-black/20 rounded-lg overflow-hidden relative group">{att.previewUrl ? <img src={att.previewUrl} alt={att.file.name} className="w-full h-auto object-cover" /> : <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center"><div className="flex-1 min-w-0 text-center"><DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" /><p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p><p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p></div></div>}</div>)}
+                    </div>
+                  )}
+                  {msg.text.trim() && <div className="p-4"><UserMessageContent text={msg.text} /></div>}
+                </div>
+                <Avatar><AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" /><AvatarFallback>U</AvatarFallback></Avatar>
               </div>
-              <Avatar><AvatarImage src={`https://api.dicebear.com/8.x/personas/svg?seed=Alex`} alt="User Avatar" /><AvatarFallback>U</AvatarFallback></Avatar>
+              <div className="pr-[56px] pt-2"> {/* 56px = 40px avatar width + 16px gap */}
+                <button
+                    onClick={() => handleRegenerate(msg)}
+                    disabled={isGenerating}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Regenerate response"
+                >
+                    <ArrowPathIcon className="w-3.5 h-3.5" />
+                    <span>Regenerate</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div key={msg.id} className="animate-fade-in w-full">
@@ -180,6 +186,29 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                       </div>
                     )}
                     {(msg.text || msg.isStreaming) && <BotMessageContent text={msg.text} isStreaming={msg.isStreaming} />}
+                     {msg.versions && msg.versions.length > 1 && !msg.isStreaming && (
+                      <div className="flex items-center gap-4 mt-2 pl-1">
+                        <button
+                          onClick={() => handleVersionChange(msg.id, msg.activeVersionIndex! - 1)}
+                          disabled={msg.activeVersionIndex === 0}
+                          className="p-1 rounded-full hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          aria-label="Previous version"
+                        >
+                          <ChevronLeftIcon className="w-4 h-4 text-gray-400" />
+                        </button>
+                        <span className="text-xs text-gray-500 font-semibold select-none">
+                          {msg.activeVersionIndex! + 1} / {msg.versions.length}
+                        </span>
+                        <button
+                          onClick={() => handleVersionChange(msg.id, msg.activeVersionIndex! + 1)}
+                          disabled={msg.activeVersionIndex === msg.versions.length - 1}
+                          className="p-1 rounded-full hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          aria-label="Next version"
+                        >
+                          <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -193,6 +222,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <ChatInputArea
             isInitialView={isInitialView}
             activeAgent={activeAgent}
+            // Fix: Pass the correct handler function for deselecting an agent.
             onDeselectAgent={handleDeselectAgent}
             showAgentSuggestions={showAgentSuggestions}
             filteredAgents={filteredAgents}
@@ -205,6 +235,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             onInput={handleInput}
             onKeyDown={handleKeyDown}
             fileInputRef={fileInputRef}
+            // Fix: Pass the correct handler function for file changes.
             onFileChange={handleFileChange}
             characterCount={characterCount}
             isGenerating={isGenerating}
