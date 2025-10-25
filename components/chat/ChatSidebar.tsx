@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChatSession } from '../../types';
-import { ArrowLeftIcon, ChatBubbleLeftIcon, EditIcon, SidebarCollapseIcon, TrashIcon } from '../IconComponents';
+import { ArrowLeftIcon, Cog6ToothIcon, EditIcon, SidebarCollapseIcon, TrashIcon } from '../IconComponents';
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
@@ -86,6 +86,22 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ sessions, currentSessionId, i
                 </ul>
             )}
         </div>
+      </div>
+      
+      {/* Settings Footer */}
+      <div className="flex-shrink-0 pt-4 border-t border-white/10">
+        {isCollapsed ? (
+          <Tooltip text="Settings">
+            <button className="w-full flex justify-center items-center h-12 rounded-lg transition-colors hover:bg-white/10 group">
+              <Cog6ToothIcon className="w-5 h-5 flex-shrink-0 text-gray-200 group-hover:rotate-45 transition-transform duration-300" />
+            </button>
+          </Tooltip>
+        ) : (
+          <button className="w-full text-left flex items-center gap-3 py-2.5 px-3 rounded-lg transition-colors hover:bg-white/10 group">
+            <Cog6ToothIcon className="w-5 h-5 flex-shrink-0 text-gray-200 group-hover:rotate-45 transition-transform duration-300" />
+            <span className="flex-1 truncate text-sm font-semibold">Settings</span>
+          </button>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, MouseEvent, ChangeEvent } from 'react';
 import { Message, Attachment, Agent, ChatSession } from '../types';
 import { getAgentColorClasses } from '../utils/chatUtils';
 
@@ -78,7 +78,8 @@ export const useChat = () => {
     const nodes = Array.from(inputRef.current.childNodes);
     let text = '';
 
-    for (const node of nodes) {
+    // FIX: Changed for...of to forEach with explicit typing for `node` to resolve TS errors.
+    nodes.forEach((node: Node) => {
       if (node.nodeType === Node.TEXT_NODE) {
         text += node.textContent;
       } else if (node.nodeType === Node.ELEMENT_NODE) {
@@ -91,7 +92,7 @@ export const useChat = () => {
           text += el.textContent;
         }
       }
-    }
+    });
 
     const cleanText = text.replace(/\u00A0/g, ' ').trim();
     setMessageToSend(cleanText);
@@ -179,7 +180,8 @@ export const useChat = () => {
     }
   }, [sessionId, isNewSession, updateMessageToSendState]);
 
-  const handleDeleteSession = useCallback(async (sessionIdToDelete: string, e: React.MouseEvent) => {
+  // FIX: Changed e: React.MouseEvent to e: MouseEvent after importing MouseEvent from react.
+  const handleDeleteSession = useCallback(async (sessionIdToDelete: string, e: MouseEvent) => {
     e.stopPropagation();
     try {
       const response = await fetch(`${API_BASE_URL}/sessions/${sessionIdToDelete}`, { method: 'DELETE' });
@@ -486,9 +488,11 @@ export const useChat = () => {
     updateMessageToSendState();
   }, [updateMessageToSendState]);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  // FIX: Changed e: React.ChangeEvent to e: ChangeEvent after importing ChangeEvent from react.
+  const handleFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files).map((file) => {
+      // FIX: Added explicit type `File` to the `file` parameter to resolve TS errors.
+      const newFiles = Array.from(e.target.files).map((file: File) => {
         const isImage = file.type.startsWith('image/');
         const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
         if (previewUrl) attachmentUrlsRef.current.add(previewUrl);

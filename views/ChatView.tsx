@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { 
-  BotIcon, BrainCircuitIcon, DocumentIcon, ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon
+  BotIcon, BrainCircuitIcon, DocumentIcon, ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon
 } from '../components/IconComponents';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar';
 import BotMessageContent from '../components/chat/BotMessageContent';
@@ -121,11 +121,13 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       />
       
       <div className="relative flex flex-col flex-1 overflow-hidden">
-        <header className="flex items-center justify-center p-4 border-b border-white/10 flex-shrink-0">
+        <header className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
+          <div className="w-10"></div> {/* Spacer for alignment */}
           <div className="flex items-center gap-4">
               <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full"><BrainCircuitIcon className="w-6 h-6 text-white" /></div>
               <h1 className="text-xl font-bold text-white">Agent Chat</h1>
           </div>
+          <div className="w-10"></div> {/* Spacer for alignment */}
         </header>
         
         <div className={`flex-1 flex flex-col transition-all duration-700 ease-in-out overflow-hidden ${isInitialView ? 'justify-center' : 'justify-end'}`}>

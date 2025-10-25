@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Agent, Attachment } from '../../types';
-import { XMarkIcon, PaperClipIcon, StopIcon, PaperAirplaneIcon, DocumentIcon } from '../IconComponents';
+import { XMarkIcon, PlusCircleIcon, StopIcon, PaperAirplaneIcon, DocumentIcon, PaperClipIcon, ArrowPathIcon } from '../IconComponents';
 import { formatFileSize, getAgentColorClasses } from '../../utils/chatUtils';
 
 interface ChatInputAreaProps {
@@ -33,6 +33,28 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
   inputRef, onInput, onKeyDown, fileInputRef, onFileChange, characterCount,
   isGenerating, currentRunId, onCancel, onSend, messageToSend
 }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const [isAutonomous, setIsAutonomous] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className={`relative mt-4 transition-all duration-700 ease-in-out`}>
       {activeAgent && !isInitialView && (
@@ -49,6 +71,35 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           )}
         </div>
       )}
+      
+      {showMenu && (
+        <div
+          ref={menuRef}
+          className="absolute bottom-full left-2 mb-2 w-60 bg-gray-900/80 backdrop-blur-md border border-white/10 rounded-lg shadow-2xl z-50 animate-fade-in p-2 space-y-1"
+        >
+          <button
+            onClick={() => { fileInputRef.current?.click(); setShowMenu(false); }}
+            className="w-full flex items-center gap-3 text-left px-3 py-2 text-sm text-gray-200 rounded-md hover:bg-white/10 transition-colors"
+          >
+            <PaperClipIcon className="w-5 h-5 text-gray-400" />
+            <span>Attach</span>
+          </button>
+          <label htmlFor="autonomous-toggle" className="w-full flex items-center justify-between gap-3 text-left px-3 py-2 text-sm text-gray-200 rounded-md hover:bg-white/10 transition-colors cursor-pointer">
+            <span>Autonomous Mode</span>
+            <div className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                id="autonomous-toggle"
+                checked={isAutonomous} 
+                onChange={() => setIsAutonomous(!isAutonomous)} 
+                className="sr-only peer" 
+              />
+              <div className="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+            </div>
+          </label>
+        </div>
+      )}
+
 
       {showAgentSuggestions && filteredAgents.length > 0 && (
         <div className="absolute bottom-full mb-2 w-full max-w-md bg-gray-900/80 backdrop-blur-md border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 animate-fade-in">
@@ -92,11 +143,10 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           style={{ maxHeight: '150px' }}
         />
         <div className="flex justify-between items-center p-2 border-t border-white/10">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
             <input type="file" ref={fileInputRef} onChange={onFileChange} className="hidden" multiple />
-            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors p-2 rounded-md">
-              <PaperClipIcon className="w-5 h-5" />
-              <span className="hidden sm:inline">Add Attachment</span>
+            <button ref={buttonRef} onClick={() => setShowMenu(!showMenu)} className="rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors" aria-label="More options">
+              <PlusCircleIcon className="w-8 h-8" />
             </button>
           </div>
           <div className="flex items-center gap-3">
