@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback, MouseEvent, ChangeEvent } from 'react';
-import { Message, Attachment, Agent, ChatSession } from '../types';
-import { getAgentColorClasses } from '../utils/chatUtils';
+// FIX: Add Team to imports
+import { Message, Attachment, Agent, Team, ChatSession } from '../types';
+// FIX: Add getTeamColorClasses to imports
+import { getAgentColorClasses, getTeamColorClasses } from '../utils/chatUtils';
 
 const API_BASE_URL = 'http://localhost:7777';
 
@@ -18,6 +20,13 @@ export const useChat = () => {
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
   const [filteredAgents, setFilteredAgents] = useState<Agent[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+
+  // FIX: Add team-related state
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
+  const [teamSearchQuery, setTeamSearchQuery] = useState('');
+  const [filteredTeams, setFilteredTeams] = useState<Team[]>([]);
+  const [activeTeamSuggestionIndex, setActiveTeamSuggestionIndex] = useState(0);
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isNewSession, setIsNewSession] = useState(true);
@@ -42,6 +51,19 @@ export const useChat = () => {
     } catch (error) {
       console.error('Failed to fetch agents:', error);
       setMessages(prev => [...prev, { id: crypto.randomUUID(), sender: 'bot', text: 'Error: Could not fetch AI agents.'}]);
+    }
+  }, []);
+
+  // FIX: Add fetchTeams function
+  const fetchTeams = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/teams`);
+      if (!response.ok) throw new Error('Failed to fetch teams');
+      const data: Team[] = await response.json();
+      setTeams(data);
+    } catch (error) {
+      console.error('Failed to fetch teams:', error);
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), sender: 'bot', text: 'Error: Could not fetch teams.'}]);
     }
   }, []);
 
@@ -86,6 +108,9 @@ export const useChat = () => {
         const el = node as HTMLElement;
         if (el.dataset.agentName) {
           text += `@[${el.dataset.agentName}]`;
+        // FIX: Add handling for team chips
+        } else if (el.dataset.teamName) {
+          text += `/[${el.dataset.teamName}]`;
         } else if (el.tagName === 'BR') {
           text += '\n';
         } else {
@@ -111,6 +136,20 @@ export const useChat = () => {
       );
     }
   }, [agentSearchQuery, agents, showAgentSuggestions]);
+
+  // FIX: Add useEffect for filtering teams
+  useEffect(() => {
+    if (showTeamSuggestions) {
+      const lowercasedQuery = teamSearchQuery.toLowerCase();
+      setFilteredTeams(
+        teams.filter(
+          (team) =>
+            team.name.toLowerCase().includes(lowercasedQuery) ||
+            team.id.toLowerCase().includes(lowercasedQuery)
+        )
+      );
+    }
+  }, [teamSearchQuery, teams, showTeamSuggestions]);
 
   const handleDeselectAgent = useCallback(() => {
     const defaultAgent = agents.find((agent) => agent.name === 'Chat Agent') || agents[0] || null;
@@ -267,7 +306,74 @@ export const useChat = () => {
     [updateMessageToSendState]
   );
   
-  const runAgent = async (agent: Agent, userMessage: Message, botMessageId: string, isRegeneration: boolean) => {
+  // FIX: Add createTeamChip and handleTeamSelect
+  const createTeamChip = (team: Team): HTMLElement => {
+    const colorClasses = getTeamColorClasses(team.id);
+    const chip = document.createElement('span');
+    chip.className = `inline-flex items-center gap-2 ${colorClasses.chipBg} ${colorClasses.chipText} rounded-lg px-2 py-1 text-sm font-semibold mx-0.5 align-middle`;
+    chip.contentEditable = 'false';
+    chip.dataset.teamId = team.id;
+    chip.dataset.teamName = team.name;
+
+    const text = document.createElement('span');
+    text.innerText = team.name;
+    chip.appendChild(text);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = `${colorClasses.chipRemove} hover:text-white focus:outline-none`;
+    removeBtn.innerHTML = '&times;';
+    removeBtn.type = 'button';
+    removeBtn.onclick = () => {
+      chip.remove();
+      inputRef.current?.focus();
+      inputRef.current?.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    };
+    chip.appendChild(removeBtn);
+
+    return chip;
+  };
+
+  const handleTeamSelect = useCallback(
+    (team: Team) => {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount || !inputRef.current?.contains(sel.anchorNode)) return;
+
+      const range = sel.getRangeAt(0);
+      const node = range.startContainer;
+      const offset = range.startOffset;
+
+      if (node.nodeType !== Node.TEXT_NODE) return;
+
+      const textBefore = node.textContent?.substring(0, offset) || '';
+      const slashMatch = textBefore.match(/\/[\w]*$/);
+      if (!slashMatch) return;
+
+      const startIndex = slashMatch.index!;
+
+      const mentionRange = document.createRange();
+      mentionRange.setStart(node, startIndex);
+      mentionRange.setEnd(node, offset);
+      mentionRange.deleteContents();
+
+      const chip = createTeamChip(team);
+      mentionRange.insertNode(chip);
+
+      const spaceNode = document.createTextNode('\u00A0');
+      chip.parentNode!.insertBefore(spaceNode, chip.nextSibling);
+
+      range.setStartAfter(spaceNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+
+      setShowTeamSuggestions(false);
+      updateMessageToSendState();
+      inputRef.current?.focus();
+    },
+    [updateMessageToSendState]
+  );
+
+  const runAgent = useCallback(async (agent: Agent, userMessage: Message, botMessageId: string, isRegeneration: boolean) => {
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
 
@@ -364,13 +470,116 @@ export const useChat = () => {
         setCurrentRunId(null);
       }
     }
-  };
+  }, [sessionId]);
+
+  // FIX: Add runTeam function
+  const runTeam = useCallback(async (team: Team, userMessage: Message, botMessageId: string, isRegeneration: boolean) => {
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    try {
+      const formData = new FormData();
+      formData.append('message', userMessage.text);
+      formData.append('stream', 'true');
+      if (sessionId) {
+        formData.append('session_id', sessionId);
+      }
+      userMessage.attachments?.forEach(att => formData.append('files', att.file));
+
+      const response = await fetch(`${API_BASE_URL}/teams/${team.id}/runs`, {
+        method: 'POST',
+        body: formData,
+        signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error: ${response.status} ${errorText}`);
+      }
+      if (!response.body) throw new Error('Response has no body');
+
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += value;
+        const eventChunks = buffer.split('\n\n');
+
+        for (let i = 0; i < eventChunks.length - 1; i++) {
+          const chunk = eventChunks[i];
+          let eventType = '';
+          let dataStr = '';
+
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              eventType = line.substring(7).trim();
+            } else if (line.startsWith('data: ')) {
+              dataStr = line.substring(6).trim();
+            }
+          }
+
+          if (dataStr) {
+            try {
+              const data = JSON.parse(dataStr);
+              if (eventType === 'RunStarted' && data.run_id) {
+                setCurrentRunId(data.run_id);
+              } else if (eventType === 'RunContent' && data.content) {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== botMessageId) return msg;
+
+                    const newVersions = [...(msg.versions || [])];
+                    const activeIdx = msg.activeVersionIndex ?? newVersions.length - 1;
+
+                    if (activeIdx < 0 || activeIdx >= newVersions.length) return msg;
+
+                    newVersions[activeIdx] = {
+                      ...newVersions[activeIdx],
+                      text: (newVersions[activeIdx].text || '') + data.content,
+                    };
+
+                    return { ...msg, text: newVersions[activeIdx].text, versions: newVersions };
+                  })
+                );
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data chunk:', dataStr);
+            }
+          }
+        }
+        buffer = eventChunks[eventChunks.length - 1];
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error(`Error running team ${team.name}:`, error);
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === botMessageId
+              ? { ...msg, text: `Error: Failed to get response from ${team.name}.`, isStreaming: false }
+              : msg
+          )
+        );
+      }
+    } finally {
+      if (!signal.aborted) {
+        setMessages((prev) => prev.map((msg) => (msg.id === botMessageId ? { ...msg, isStreaming: false } : msg)));
+        setCurrentRunId(null);
+      }
+    }
+  }, [sessionId]);
 
   const handleSend = useCallback(async () => {
     if ((messageToSend.trim() === '' && attachments.length === 0) || isGenerating) return;
 
     let agentsToSendTo: Agent[] = [];
     const agentNameMatches = [...messageToSend.matchAll(/@\[([^\]]+)\]/g)];
+
+    let teamsToSendTo: Team[] = [];
+    const teamNameMatches = [...messageToSend.matchAll(/\/\[([^\]]+)\]/g)];
 
     if (agentNameMatches.length > 0) {
       for (const match of agentNameMatches) {
@@ -379,18 +588,29 @@ export const useChat = () => {
           agentsToSendTo.push(taggedAgent);
         }
       }
-    } else if (activeAgent) {
-      agentsToSendTo.push(activeAgent);
+    }
+    
+    if (teamNameMatches.length > 0) {
+      for (const match of teamNameMatches) {
+        const taggedTeam = teams.find((team) => team.name === match[1]);
+        if (taggedTeam && !teamsToSendTo.some((t) => t.id === taggedTeam.id)) {
+          teamsToSendTo.push(taggedTeam);
+        }
+      }
     }
 
-    if (agentsToSendTo.length === 0) {
-      console.error("No valid agent to send to.");
-      setMessages(prev => [...prev, {id: crypto.randomUUID(), sender: 'bot', text: 'Error: Could not determine which agent to use.'}]);
-      return;
+    if (agentsToSendTo.length === 0 && teamsToSendTo.length === 0) {
+        if (activeAgent) {
+            agentsToSendTo.push(activeAgent);
+        } else {
+            console.error("No valid agent to send to.");
+            setMessages(prev => [...prev, {id: crypto.randomUUID(), sender: 'bot', text: 'Error: Could not determine which agent to use.'}]);
+            return;
+        }
     }
 
     const userMessage: Message = { id: crypto.randomUUID(), text: messageToSend, sender: 'user', attachments };
-    const botMessagePlaceholders: Message[] = agentsToSendTo.map((agent) => ({
+    const botAgentMessagePlaceholders: Message[] = agentsToSendTo.map((agent) => ({
       id: crypto.randomUUID(),
       text: '',
       sender: 'bot',
@@ -400,6 +620,19 @@ export const useChat = () => {
       versions: [{ text: '', attachments: [] }],
       activeVersionIndex: 0,
     }));
+
+    const botTeamMessagePlaceholders: Message[] = teamsToSendTo.map((team) => ({
+      id: crypto.randomUUID(),
+      text: '',
+      sender: 'bot',
+      isStreaming: true,
+      team,
+      userMessageId: userMessage.id,
+      versions: [{ text: '', attachments: [] }],
+      activeVersionIndex: 0,
+    }));
+
+    const botMessagePlaceholders = [...botAgentMessagePlaceholders, ...botTeamMessagePlaceholders];
 
     setMessages((prev) => [...prev, userMessage, ...botMessagePlaceholders]);
     if (inputRef.current) inputRef.current.innerHTML = '';
@@ -418,9 +651,13 @@ export const useChat = () => {
     }
 
     agentsToSendTo.forEach(async (agent, index) => {
-      await runAgent(agent, userMessage, botMessagePlaceholders[index].id, false);
+      await runAgent(agent, userMessage, botAgentMessagePlaceholders[index].id, false);
     });
-  }, [messageToSend, attachments, isGenerating, agents, activeAgent, sessionId, isNewSession, updateMessageToSendState]);
+    
+    teamsToSendTo.forEach(async (team, index) => {
+      await runTeam(team, userMessage, botTeamMessagePlaceholders[index].id, false);
+    });
+  }, [messageToSend, attachments, isGenerating, agents, teams, activeAgent, sessionId, isNewSession, updateMessageToSendState, runAgent, runTeam]);
 
   const handleRegenerate = useCallback(async (messageToRegenerate: Message) => {
     if (isGenerating) return;
@@ -450,10 +687,13 @@ export const useChat = () => {
     );
 
     botMessagesToUpdate.forEach(async (botMsg) => {
-      if (!botMsg.agent) return;
-      await runAgent(botMsg.agent, messageToRegenerate, botMsg.id, true);
+      if (botMsg.agent) {
+        await runAgent(botMsg.agent, messageToRegenerate, botMsg.id, true);
+      } else if (botMsg.team) {
+        await runTeam(botMsg.team, messageToRegenerate, botMsg.id, true);
+      }
     });
-  }, [isGenerating, messages]);
+  }, [isGenerating, messages, runAgent, runTeam]);
 
   const handleVersionChange = useCallback((messageId: string, newIndex: number) => {
     setMessages((prevMessages) =>
@@ -529,5 +769,10 @@ export const useChat = () => {
 
     handleSend, handlePromptClick, handleFileChange, handleRemoveAttachment,
     handleRegenerate, handleVersionChange,
+
+    // FIX: export team-related properties
+    teams, fetchTeams, showTeamSuggestions, setShowTeamSuggestions,
+    setTeamSearchQuery, filteredTeams, activeTeamSuggestionIndex,
+    setActiveTeamSuggestionIndex, handleTeamSelect,
   };
 };

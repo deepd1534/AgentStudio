@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { 
-  BotIcon, BrainCircuitIcon, DocumentIcon, ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon
+  BotIcon, BrainCircuitIcon, DocumentIcon, ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon, Cog6ToothIcon, UsersIcon
 } from '../components/IconComponents';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/Avatar';
 import BotMessageContent from '../components/chat/BotMessageContent';
@@ -9,7 +9,7 @@ import InitialContent from '../components/chat/InitialContent';
 import { useChat } from '../hooks/useChat';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import ChatSidebar from '../components/chat/ChatSidebar';
-import { formatFileSize, getAgentColorClasses } from '../utils/chatUtils';
+import { formatFileSize, getAgentColorClasses, getTeamColorClasses } from '../utils/chatUtils';
 
 // --- Main ChatView Component ---
 const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -25,7 +25,10 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     handleCancel, handlePromptClick, createAgentChip, handleRegenerate,
     handleVersionChange, handleSelectSession, handleDeleteSession,
     
-    agents, fetchAgents, setShowAgentSuggestions, setAgentSearchQuery
+    agents, fetchAgents, setShowAgentSuggestions, setAgentSearchQuery,
+
+    teams, fetchTeams, showTeamSuggestions, setShowTeamSuggestions, setTeamSearchQuery,
+    filteredTeams, activeTeamSuggestionIndex, setActiveTeamSuggestionIndex, handleTeamSelect,
   } = useChat();
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -34,6 +37,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) {
         setShowAgentSuggestions(false);
+        setShowTeamSuggestions(false);
     } else {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
@@ -41,23 +45,34 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
         if (node.nodeType === Node.TEXT_NODE) {
             const textBeforeCursor = node.textContent?.substring(0, offset) || '';
-            const atMatch = textBeforeCursor.match(/(?:\s|^)@(\w*)$/);
+            const agentAtMatch = textBeforeCursor.match(/(?:\s|^)@(\w*)$/);
+            const teamSlashMatch = textBeforeCursor.match(/(?:\s|^)\/(\w*)$/);
 
-            if (atMatch) {
+            if (agentAtMatch) {
                 if (!agents.length) fetchAgents();
-                const query = atMatch[1];
+                const query = agentAtMatch[1];
                 setAgentSearchQuery(query);
                 setShowAgentSuggestions(true);
+                setShowTeamSuggestions(false);
                 setActiveSuggestionIndex(0);
+            } else if (teamSlashMatch) {
+                if (!teams.length) fetchTeams();
+                const query = teamSlashMatch[1];
+                setTeamSearchQuery(query);
+                setShowTeamSuggestions(true);
+                setShowAgentSuggestions(false);
+                setActiveTeamSuggestionIndex(0);
             } else {
                 setShowAgentSuggestions(false);
+                setShowTeamSuggestions(false);
             }
         } else {
             setShowAgentSuggestions(false);
+            setShowTeamSuggestions(false);
         }
     }
     updateMessageToSendState();
-  }, [updateMessageToSendState, agents, fetchAgents, setAgentSearchQuery, setShowAgentSuggestions, setActiveSuggestionIndex]);
+  }, [updateMessageToSendState, agents, fetchAgents, setAgentSearchQuery, setShowAgentSuggestions, setActiveSuggestionIndex, teams, fetchTeams, setTeamSearchQuery, setShowTeamSuggestions, setActiveTeamSuggestionIndex]);
   
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (showAgentSuggestions && filteredAgents.length > 0) {
@@ -74,6 +89,20 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         e.preventDefault();
         setShowAgentSuggestions(false);
       }
+    } else if (showTeamSuggestions && filteredTeams.length > 0) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveTeamSuggestionIndex((prev: number) => (prev + 1) % filteredTeams.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveTeamSuggestionIndex((prev: number) => (prev - 1 + filteredTeams.length) % filteredTeams.length);
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            handleTeamSelect(filteredTeams[activeTeamSuggestionIndex]);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setShowTeamSuggestions(false);
+        }
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -84,26 +113,32 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
         const offset = range.startOffset;
+        const checkAndRemoveChip = (prevNode: ChildNode | null) => {
+            if (prevNode && prevNode.nodeType === Node.ELEMENT_NODE) {
+                const el = prevNode as HTMLElement;
+                if (el.dataset.agentName || el.dataset.teamName) {
+                    e.preventDefault();
+                    el.parentNode?.removeChild(el);
+                    updateMessageToSendState();
+                    return true;
+                }
+            }
+            return false;
+        };
 
         if (offset === 0 && node.previousSibling) {
-          const prevNode = node.previousSibling;
-          if (prevNode.nodeType === Node.ELEMENT_NODE && (prevNode as HTMLElement).dataset.agentName) {
-            e.preventDefault();
-            prevNode.parentNode?.removeChild(prevNode);
-            updateMessageToSendState();
-          }
-        }
-        else if (node.nodeType === Node.TEXT_NODE && offset === 1 && node.textContent === '\u00A0' && node.previousSibling) {
-          const prevNode = node.previousSibling;
-          if (prevNode.nodeType === Node.ELEMENT_NODE && (prevNode as HTMLElement).dataset.agentName) {
-            e.preventDefault();
-            prevNode.parentNode?.removeChild(prevNode);
-            node.parentNode?.removeChild(node);
-            updateMessageToSendState();
-          }
+            checkAndRemoveChip(node.previousSibling);
+        } else if (node.nodeType === Node.TEXT_NODE && offset === 1 && node.textContent === '\u00A0' && node.previousSibling) {
+            if (checkAndRemoveChip(node.previousSibling)) {
+                node.parentNode?.removeChild(node);
+            }
         }
     }
-  }, [showAgentSuggestions, filteredAgents, activeSuggestionIndex, handleAgentSelect, setShowAgentSuggestions, handleSend, updateMessageToSendState, inputRef, setActiveSuggestionIndex]);
+  }, [
+    showAgentSuggestions, filteredAgents, activeSuggestionIndex, handleAgentSelect, setShowAgentSuggestions, 
+    showTeamSuggestions, filteredTeams, activeTeamSuggestionIndex, handleTeamSelect, setShowTeamSuggestions, 
+    handleSend, updateMessageToSendState, inputRef, setActiveSuggestionIndex, setActiveTeamSuggestionIndex
+  ]);
 
   return (
     <div className="grid h-screen max-h-screen w-full bg-black/20 backdrop-blur-lg overflow-hidden transition-all duration-300"
@@ -159,14 +194,17 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             ) : (
               <div key={msg.id} className="animate-fade-in w-full">
                 <div className="flex items-start gap-4">
-                  {msg.agent ? (
+                  {msg.team ? (
+                      <Avatar><AvatarFallback className="bg-emerald-800"><UsersIcon className="w-5 h-5 text-emerald-300"/></AvatarFallback></Avatar>
+                  ) : msg.agent ? (
                     <Avatar><AvatarFallback>{msg.agent.name.substring(0,2).toUpperCase()}</AvatarFallback></Avatar>
                   ) : (
                     <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10"><BotIcon className="w-6 h-6 text-cyan-300" /></div>
                   )}
                   <div className="flex-1 min-w-0">
-                    {msg.agent && <p className={`font-bold text-sm ${getAgentColorClasses(msg.agent.id).text} pt-1.5 pb-1`}>{msg.agent.name}</p>}
-                    <div className={!msg.agent ? 'pt-2' : ''}>
+                    {msg.team && <p className={`font-bold text-sm ${getTeamColorClasses(msg.team.id).text} pt-1.5 pb-1`}>{msg.team.name}</p>}
+                    {msg.agent && !msg.team && <p className={`font-bold text-sm ${getAgentColorClasses(msg.agent.id).text} pt-1.5 pb-1`}>{msg.agent.name}</p>}
+                    <div className={!msg.agent && !msg.team ? 'pt-2' : ''}>
                       {msg.attachments && msg.attachments.length > 0 && (
                         <div className="mb-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {msg.attachments.map(att => 
@@ -225,9 +263,14 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               onDeselectAgent={handleDeselectAgent}
               showAgentSuggestions={showAgentSuggestions}
               filteredAgents={filteredAgents}
-              activeSuggestionIndex={activeSuggestionIndex}
+              activeAgentSuggestionIndex={activeSuggestionIndex}
               onAgentSelect={handleAgentSelect}
-              onMouseEnterSuggestion={setActiveSuggestionIndex}
+              onMouseEnterAgentSuggestion={setActiveSuggestionIndex}
+              showTeamSuggestions={showTeamSuggestions}
+              filteredTeams={filteredTeams}
+              activeTeamSuggestionIndex={activeTeamSuggestionIndex}
+              onTeamSelect={handleTeamSelect}
+              onMouseEnterTeamSuggestion={setActiveTeamSuggestionIndex}
               attachments={attachments}
               onRemoveAttachment={handleRemoveAttachment}
               inputRef={inputRef}

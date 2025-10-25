@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Agent, Attachment } from '../../types';
+import { Agent, Attachment, Team } from '../../types';
 import { XMarkIcon, PlusCircleIcon, StopIcon, PaperAirplaneIcon, DocumentIcon, PaperClipIcon, ArrowPathIcon } from '../IconComponents';
 import { formatFileSize, getAgentColorClasses } from '../../utils/chatUtils';
 
@@ -9,9 +9,14 @@ interface ChatInputAreaProps {
   onDeselectAgent: () => void;
   showAgentSuggestions: boolean;
   filteredAgents: Agent[];
-  activeSuggestionIndex: number;
+  activeAgentSuggestionIndex: number;
   onAgentSelect: (agent: Agent) => void;
-  onMouseEnterSuggestion: (index: number) => void;
+  onMouseEnterAgentSuggestion: (index: number) => void;
+  showTeamSuggestions: boolean;
+  filteredTeams: Team[];
+  activeTeamSuggestionIndex: number;
+  onTeamSelect: (team: Team) => void;
+  onMouseEnterTeamSuggestion: (index: number) => void;
   attachments: Attachment[];
   onRemoveAttachment: (id: string) => void;
   inputRef: React.RefObject<HTMLDivElement>;
@@ -29,8 +34,9 @@ interface ChatInputAreaProps {
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
   isInitialView, activeAgent, onDeselectAgent, showAgentSuggestions, filteredAgents,
-  activeSuggestionIndex, onAgentSelect, onMouseEnterSuggestion, attachments, onRemoveAttachment,
-  inputRef, onInput, onKeyDown, fileInputRef, onFileChange, characterCount,
+  activeAgentSuggestionIndex, onAgentSelect, onMouseEnterAgentSuggestion, 
+  showTeamSuggestions, filteredTeams, activeTeamSuggestionIndex, onTeamSelect, onMouseEnterTeamSuggestion,
+  attachments, onRemoveAttachment, inputRef, onInput, onKeyDown, fileInputRef, onFileChange, characterCount,
   isGenerating, currentRunId, onCancel, onSend, messageToSend
 }) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -108,11 +114,31 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
               <li key={agent.id}>
                 <button
                   onClick={() => onAgentSelect(agent)}
-                  onMouseEnter={() => onMouseEnterSuggestion(index)}
-                  className={`w-full text-left px-4 py-3 transition-colors text-white ${activeSuggestionIndex === index ? 'bg-blue-500/30' : 'hover:bg-white/10'}`}
+                  onMouseEnter={() => onMouseEnterAgentSuggestion(index)}
+                  className={`w-full text-left px-4 py-3 transition-colors text-white ${activeAgentSuggestionIndex === index ? 'bg-blue-500/30' : 'hover:bg-white/10'}`}
                 >
                   <span className="font-bold">{agent.name}</span>
                   <span className="text-sm text-gray-400 ml-2">({agent.id})</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {showTeamSuggestions && filteredTeams.length > 0 && (
+        <div className="absolute bottom-full mb-2 w-full max-w-md bg-gray-900/80 backdrop-blur-md border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 animate-fade-in">
+          <div className="px-4 py-2 bg-black/20 text-xs font-semibold text-gray-400 uppercase">TEAMS</div>
+          <ul className="max-h-60 overflow-y-auto custom-scrollbar">
+            {filteredTeams.map((team, index) => (
+              <li key={team.id}>
+                <button
+                  onClick={() => onTeamSelect(team)}
+                  onMouseEnter={() => onMouseEnterTeamSuggestion(index)}
+                  className={`w-full text-left px-4 py-3 transition-colors text-white ${activeTeamSuggestionIndex === index ? 'bg-emerald-500/30' : 'hover:bg-white/10'}`}
+                >
+                  <span className="font-bold">{team.name}</span>
+                  <span className="text-sm text-gray-400 ml-2">({team.id})</span>
                 </button>
               </li>
             ))}
@@ -138,7 +164,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           contentEditable
           onInput={onInput}
           onKeyDown={onKeyDown}
-          data-placeholder="Ask whatever you want..."
+          data-placeholder="Ask whatever you want... (@ for agents, / for teams)"
           className={`chat-input w-full bg-transparent p-4 focus:outline-none custom-scrollbar transition-all duration-500 ease-in-out text-white ${isInitialView ? 'h-20' : 'h-14'} min-h-[56px]`}
           style={{ maxHeight: '150px' }}
         />

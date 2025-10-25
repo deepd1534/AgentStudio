@@ -1,15 +1,21 @@
 import React, { useMemo } from 'react';
-import { getAgentColorClasses } from '../../utils/chatUtils';
+import { getAgentColorClasses, getTeamColorClasses } from '../../utils/chatUtils';
 
 const UserMessageContent: React.FC<{ text: string }> = ({ text }) => {
   const content = useMemo(() => {
-    const parts = text.split(/(@\[[^\]]+\])/g);
+    const parts = text.split(/([@\/]\[[^\]]+\])/g);
     return parts.map((part, index) => {
-      const match = part.match(/@\[([^\]]+)\]/);
-      if (match && match[1]) {
-        const agentName = match[1];
+      const agentMatch = part.match(/@\[([^\]]+)\]/);
+      if (agentMatch && agentMatch[1]) {
+        const agentName = agentMatch[1];
         const colorClass = getAgentColorClasses(agentName).text;
-        return <strong key={index} className={`font-semibold ${colorClass}`}>{agentName}</strong>;
+        return <strong key={index} className={`font-semibold ${colorClass}`}>@{agentName}</strong>;
+      }
+      const teamMatch = part.match(/\/\[([^\]]+)\]/);
+      if (teamMatch && teamMatch[1]) {
+        const teamName = teamMatch[1];
+        const colorClass = getTeamColorClasses(teamName).text;
+        return <strong key={index} className={`font-semibold ${colorClass}`}>/{teamName}</strong>;
       }
       return <React.Fragment key={index}>{part}</React.Fragment>;
     });

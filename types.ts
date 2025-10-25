@@ -77,6 +77,7 @@ export interface Message {
   isStreaming?: boolean;
   attachments?: Attachment[];
   agent?: Agent;
+  team?: Team;
 
   // For regeneration and response versioning
   userMessageId?: string; // Links a bot message to the user message it's responding to
@@ -94,6 +95,11 @@ export interface Attachment {
 }
 
 export interface Agent {
+  id: string;
+  name: string;
+}
+
+export interface Team {
   id: string;
   name: string;
 }
