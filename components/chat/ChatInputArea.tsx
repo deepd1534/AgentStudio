@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Agent, Attachment, Team } from '../../types';
+import { Agent, Attachment, Team, Workflow } from '../../types';
 import { XMarkIcon, PlusCircleIcon, StopIcon, PaperAirplaneIcon, DocumentIcon, PaperClipIcon, ArrowPathIcon } from '../IconComponents';
-import { formatFileSize, getAgentColorClasses, getTeamColorClasses } from '../../utils/chatUtils';
+import { formatFileSize, getAgentColorClasses, getTeamColorClasses, getWorkflowColorClasses } from '../../utils/chatUtils';
 
 interface ChatInputAreaProps {
   isInitialView: boolean;
-  activeTarget: { type: 'agent' | 'team', data: Agent | Team } | null;
+  activeTarget: { type: 'agent' | 'team' | 'workflow', data: Agent | Team | Workflow } | null;
   onResetTarget: () => void;
   showAgentSuggestions: boolean;
   filteredAgents: Agent[];
@@ -17,6 +17,11 @@ interface ChatInputAreaProps {
   activeTeamSuggestionIndex: number;
   onTeamSelect: (team: Team) => void;
   onMouseEnterTeamSuggestion: (index: number) => void;
+  showWorkflowSuggestions: boolean;
+  filteredWorkflows: Workflow[];
+  activeWorkflowSuggestionIndex: number;
+  onWorkflowSelect: (workflow: Workflow) => void;
+  onMouseEnterWorkflowSuggestion: (index: number) => void;
   attachments: Attachment[];
   onRemoveAttachment: (id: string) => void;
   inputRef: React.RefObject<HTMLDivElement>;
@@ -36,6 +41,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
   isInitialView, activeTarget, onResetTarget, showAgentSuggestions, filteredAgents,
   activeAgentSuggestionIndex, onAgentSelect, onMouseEnterAgentSuggestion, 
   showTeamSuggestions, filteredTeams, activeTeamSuggestionIndex, onTeamSelect, onMouseEnterTeamSuggestion,
+  showWorkflowSuggestions, filteredWorkflows, activeWorkflowSuggestionIndex, onWorkflowSelect, onMouseEnterWorkflowSuggestion,
   attachments, onRemoveAttachment, inputRef, onInput, onKeyDown, fileInputRef, onFileChange, characterCount,
   isGenerating, currentRunId, onCancel, onSend, messageToSend
 }) => {
@@ -131,6 +137,26 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         </div>
       )}
 
+      {showWorkflowSuggestions && filteredWorkflows.length > 0 && (
+        <div className="absolute bottom-full mb-2 w-full max-w-md bg-gray-900/80 backdrop-blur-md border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 animate-fade-in">
+          <div className="px-4 py-2 bg-black/20 text-xs font-semibold text-gray-400 uppercase">WORKFLOWS</div>
+          <ul className="max-h-60 overflow-y-auto custom-scrollbar">
+            {filteredWorkflows.map((workflow, index) => (
+              <li key={workflow.id}>
+                <button
+                  onClick={() => onWorkflowSelect(workflow)}
+                  onMouseEnter={() => onMouseEnterWorkflowSuggestion(index)}
+                  className={`w-full text-left px-4 py-3 transition-colors text-white ${activeWorkflowSuggestionIndex === index ? 'bg-purple-500/30' : 'hover:bg-white/10'}`}
+                >
+                  <span className="font-bold">{workflow.name}</span>
+                  {workflow.description && <p className="text-sm text-gray-400 mt-1">{workflow.description}</p>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2 p-2 bg-gray-800/50 border border-white/10 rounded-t-lg">
           {attachments.map(att => (
@@ -149,7 +175,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
           contentEditable
           onInput={onInput}
           onKeyDown={onKeyDown}
-          data-placeholder="Ask whatever you want... (@ for agents, / for teams)"
+          data-placeholder="Ask whatever you want... (@ for agents, / for teams, ! for workflows)"
           className={`chat-input w-full bg-transparent p-4 focus:outline-none custom-scrollbar transition-all duration-500 ease-in-out text-white ${isInitialView ? 'h-20' : 'h-14'} min-h-[56px]`}
           style={{ maxHeight: '150px' }}
         />
@@ -161,7 +187,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             </button>
             {activeTarget && !isInitialView && (
               <div className="group flex items-center gap-2 text-xs text-gray-400 bg-black/20 ml-3 pl-3 pr-2 py-1.5 rounded-lg border border-transparent">
-                <span>Send to: <span className={`font-bold ${activeTarget.type === 'agent' ? getAgentColorClasses(activeTarget.data.id).text : getTeamColorClasses(activeTarget.data.id).text}`}>{activeTarget.data.name}</span></span>
+                <span>Send to: <span className={`font-bold ${activeTarget.type === 'agent' ? getAgentColorClasses(activeTarget.data.id).text : activeTarget.type === 'team' ? getTeamColorClasses(activeTarget.data.id).text : getWorkflowColorClasses((activeTarget.data as Workflow).id).text}`}>{activeTarget.data.name}</span></span>
                 {activeTarget.data.name !== 'Chat Agent' && (
                 <button
                     onClick={onResetTarget}

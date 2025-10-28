@@ -21,6 +21,12 @@ const TEAM_COLORS = [
     { text: 'text-green-400', chipBg: 'bg-green-600/50', chipText: 'text-green-200', chipRemove: 'text-green-300', border: 'border-green-500/30' },
 ];
 
+const WORKFLOW_COLORS = [
+    { text: 'text-purple-400', chipBg: 'bg-purple-600/50', chipText: 'text-purple-200', chipRemove: 'text-purple-300', border: 'border-purple-500/30' },
+    { text: 'text-yellow-400', chipBg: 'bg-yellow-600/50', chipText: 'text-yellow-200', chipRemove: 'text-yellow-300', border: 'border-yellow-500/30' },
+    { text: 'text-pink-400', chipBg: 'bg-pink-600/50', chipText: 'text-pink-200', chipRemove: 'text-pink-300', border: 'border-pink-500/30' },
+];
+
 const stringToHash = (str: string): number => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -47,4 +53,13 @@ export const getTeamColorClasses = (teamIdOrName: string) => {
     const hash = stringToHash(teamIdOrName);
     const index = hash % TEAM_COLORS.length;
     return TEAM_COLORS[index];
+};
+
+export const getWorkflowColorClasses = (workflowIdOrName: string) => {
+  if (!workflowIdOrName) {
+    return WORKFLOW_COLORS[0];
+  }
+  const hash = stringToHash(workflowIdOrName);
+  const index = hash % WORKFLOW_COLORS.length;
+  return WORKFLOW_COLORS[index];
 };

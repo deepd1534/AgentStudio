@@ -81,6 +81,25 @@ export interface ToolCall {
   delegatedToAgentName?: string;
 }
 
+export interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface WorkflowStep {
+  name: string;
+  status: 'running' | 'completed' | 'failed';
+  content: string;
+}
+
+export interface WorkflowRun {
+  workflow: Workflow;
+  status: 'running' | 'completed' | 'failed';
+  steps: WorkflowStep[];
+  finalContent: string;
+}
+
 export interface Message {
   id: string;
   text: string;
@@ -91,6 +110,7 @@ export interface Message {
   team?: Team;
   toolCall?: ToolCall;
   error?: string;
+  workflowRun?: WorkflowRun;
 
   // For regeneration and response versioning
   userMessageId?: string; // Links a bot message to the user message it's responding to

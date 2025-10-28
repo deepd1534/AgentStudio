@@ -14,6 +14,8 @@ import { formatFileSize, getAgentColorClasses, getTeamColorClasses } from '../ut
 import ToolCallCard from '../components/chat/ToolCallCard';
 import ThinkingIndicator from '../components/chat/ThinkingIndicator';
 import TeamRunError from '../components/chat/TeamRunError';
+import WorkflowRunCard from '../components/chat/WorkflowRunCard';
+import { Workflow } from '../types';
 
 // --- Main ChatView Component ---
 const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -33,6 +35,10 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     teams, fetchTeams, showTeamSuggestions, setShowTeamSuggestions, setTeamSearchQuery,
     filteredTeams, activeTeamSuggestionIndex, setActiveTeamSuggestionIndex, handleTeamSelect,
+
+    workflows, fetchWorkflows, showWorkflowSuggestions, setShowWorkflowSuggestions, 
+    setWorkflowSearchQuery, filteredWorkflows, activeWorkflowSuggestionIndex, 
+    setActiveWorkflowSuggestionIndex, handleWorkflowSelect,
   } = useChat();
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -59,6 +65,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (!sel || !sel.rangeCount) {
         setShowAgentSuggestions(false);
         setShowTeamSuggestions(false);
+        setShowWorkflowSuggestions(false);
     } else {
         const range = sel.getRangeAt(0);
         const node = range.startContainer;
@@ -68,6 +75,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             const textBeforeCursor = node.textContent?.substring(0, offset) || '';
             const agentAtMatch = textBeforeCursor.match(/(?:\s|^)@(\w*)$/);
             const teamSlashMatch = textBeforeCursor.match(/(?:\s|^)\/(\w*)$/);
+            const workflowBangMatch = textBeforeCursor.match(/(?:\s|^)!([\w\s]*)$/);
 
             if (agentAtMatch) {
                 if (!agents.length) fetchAgents();
@@ -75,6 +83,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 setAgentSearchQuery(query);
                 setShowAgentSuggestions(true);
                 setShowTeamSuggestions(false);
+                setShowWorkflowSuggestions(false);
                 setActiveSuggestionIndex(0);
             } else if (teamSlashMatch) {
                 if (!teams.length) fetchTeams();
@@ -82,18 +91,29 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 setTeamSearchQuery(query);
                 setShowTeamSuggestions(true);
                 setShowAgentSuggestions(false);
+                setShowWorkflowSuggestions(false);
                 setActiveTeamSuggestionIndex(0);
+            } else if (workflowBangMatch) {
+                if (!workflows.length) fetchWorkflows();
+                const query = workflowBangMatch[1];
+                setWorkflowSearchQuery(query);
+                setShowWorkflowSuggestions(true);
+                setShowAgentSuggestions(false);
+                setShowTeamSuggestions(false);
+                setActiveWorkflowSuggestionIndex(0);
             } else {
                 setShowAgentSuggestions(false);
                 setShowTeamSuggestions(false);
+                setShowWorkflowSuggestions(false);
             }
         } else {
             setShowAgentSuggestions(false);
             setShowTeamSuggestions(false);
+            setShowWorkflowSuggestions(false);
         }
     }
     updateMessageToSendState();
-  }, [updateMessageToSendState, agents, fetchAgents, setAgentSearchQuery, setShowAgentSuggestions, setActiveSuggestionIndex, teams, fetchTeams, setTeamSearchQuery, setShowTeamSuggestions, setActiveTeamSuggestionIndex]);
+  }, [updateMessageToSendState, agents, fetchAgents, setAgentSearchQuery, setShowAgentSuggestions, setActiveSuggestionIndex, teams, fetchTeams, setTeamSearchQuery, setShowTeamSuggestions, setActiveTeamSuggestionIndex, workflows, fetchWorkflows, setWorkflowSearchQuery, setShowWorkflowSuggestions, setActiveWorkflowSuggestionIndex]);
   
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (showAgentSuggestions && filteredAgents.length > 0) {
@@ -124,6 +144,20 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             e.preventDefault();
             setShowTeamSuggestions(false);
         }
+    } else if (showWorkflowSuggestions && filteredWorkflows.length > 0) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveWorkflowSuggestionIndex((prev: number) => (prev + 1) % filteredWorkflows.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveWorkflowSuggestionIndex((prev: number) => (prev - 1 + filteredWorkflows.length) % filteredWorkflows.length);
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            handleWorkflowSelect(filteredWorkflows[activeWorkflowSuggestionIndex]);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setShowWorkflowSuggestions(false);
+        }
     } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -137,7 +171,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const checkAndRemoveChip = (prevNode: ChildNode | null) => {
             if (prevNode && prevNode.nodeType === Node.ELEMENT_NODE) {
                 const el = prevNode as HTMLElement;
-                if (el.dataset.agentName || el.dataset.teamName) {
+                if (el.dataset.agentName || el.dataset.teamName || el.dataset.workflowName) {
                     e.preventDefault();
                     el.parentNode?.removeChild(el);
                     updateMessageToSendState();
@@ -158,7 +192,8 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }, [
     showAgentSuggestions, filteredAgents, activeSuggestionIndex, handleAgentSelect, setShowAgentSuggestions, 
     showTeamSuggestions, filteredTeams, activeTeamSuggestionIndex, handleTeamSelect, setShowTeamSuggestions, 
-    handleSend, updateMessageToSendState, inputRef, setActiveSuggestionIndex, setActiveTeamSuggestionIndex
+    showWorkflowSuggestions, filteredWorkflows, activeWorkflowSuggestionIndex, handleWorkflowSelect, setShowWorkflowSuggestions,
+    handleSend, updateMessageToSendState, inputRef, setActiveSuggestionIndex, setActiveTeamSuggestionIndex, setActiveWorkflowSuggestionIndex
   ]);
 
   return (
@@ -232,7 +267,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             ) : msg.team ? (
                               <p className={`font-bold text-sm ${getTeamColorClasses(msg.team.id).text}`}>{msg.team.name} Leader</p>
                             ) : null}
-                            {msg.isStreaming && <ThinkingIndicator />}
+                            {msg.isStreaming && !msg.workflowRun && <ThinkingIndicator />}
                           </div>
                         )}
                         <div className={!msg.agent && !msg.team ? 'pt-2' : ''}>
@@ -240,6 +275,8 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             <TeamRunError error={msg.error} />
                           ) : msg.toolCall && msg.team ? (
                             <ToolCallCard toolCall={msg.toolCall} team={msg.team} />
+                          ) : msg.workflowRun ? (
+                            <WorkflowRunCard workflowRun={msg.workflowRun} />
                           ) : (
                             <>
                               {msg.attachments && msg.attachments.length > 0 && (
@@ -315,7 +352,12 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               filteredTeams={filteredTeams}
               activeTeamSuggestionIndex={activeTeamSuggestionIndex}
               onTeamSelect={handleTeamSelect}
-              onMouseEnterTeamSuggestion={setActiveSuggestionIndex}
+              onMouseEnterTeamSuggestion={setActiveTeamSuggestionIndex}
+              showWorkflowSuggestions={showWorkflowSuggestions}
+              filteredWorkflows={filteredWorkflows}
+              activeWorkflowSuggestionIndex={activeWorkflowSuggestionIndex}
+              onWorkflowSelect={handleWorkflowSelect}
+              onMouseEnterWorkflowSuggestion={setActiveWorkflowSuggestionIndex}
               attachments={attachments}
               onRemoveAttachment={handleRemoveAttachment}
               inputRef={inputRef}

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback, MouseEvent, ChangeEvent } from 'react';
-import { Message, Attachment, Agent, Team, ChatSession } from '../types';
-import { getAgentColorClasses, getTeamColorClasses } from '../utils/chatUtils';
+import { Message, Attachment, Agent, Team, ChatSession, Workflow } from '../types';
+import { getAgentColorClasses, getTeamColorClasses, getWorkflowColorClasses } from '../utils/chatUtils';
 
 const API_BASE_URL = 'http://localhost:7777';
 
@@ -13,7 +13,7 @@ export const useChat = () => {
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
 
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [activeTarget, setActiveTarget] = useState<{ type: 'agent' | 'team', data: Agent | Team } | null>(null);
+  const [activeTarget, setActiveTarget] = useState<{ type: 'agent' | 'team' | 'workflow', data: Agent | Team | Workflow } | null>(null);
   const [showAgentSuggestions, setShowAgentSuggestions] = useState(false);
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
   const [filteredAgents, setFilteredAgents] = useState<Agent[]>([]);
@@ -24,6 +24,12 @@ export const useChat = () => {
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
   const [filteredTeams, setFilteredTeams] = useState<Team[]>([]);
   const [activeTeamSuggestionIndex, setActiveTeamSuggestionIndex] = useState(0);
+
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [showWorkflowSuggestions, setShowWorkflowSuggestions] = useState(false);
+  const [workflowSearchQuery, setWorkflowSearchQuery] = useState('');
+  const [filteredWorkflows, setFilteredWorkflows] = useState<Workflow[]>([]);
+  const [activeWorkflowSuggestionIndex, setActiveWorkflowSuggestionIndex] = useState(0);
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isNewSession, setIsNewSession] = useState(true);
@@ -64,6 +70,18 @@ export const useChat = () => {
       setMessages(prev => [...prev, { id: crypto.randomUUID(), sender: 'bot', text: 'Error: Could not fetch teams.'}]);
     }
   }, []);
+  
+  const fetchWorkflows = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/workflows`);
+      if (!response.ok) throw new Error('Failed to fetch workflows');
+      const data: Workflow[] = await response.json();
+      setWorkflows(data);
+    } catch (error) {
+      console.error('Failed to fetch workflows:', error);
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), sender: 'bot', text: 'Error: Could not fetch AI workflows.'}]);
+    }
+  }, []);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -80,9 +98,10 @@ export const useChat = () => {
     setSessionId(crypto.randomUUID());
     fetchAgents();
     fetchTeams();
+    fetchWorkflows();
     fetchSessions();
     return () => attachmentUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-  }, [fetchAgents, fetchTeams, fetchSessions]);
+  }, [fetchAgents, fetchTeams, fetchWorkflows, fetchSessions]);
 
   const updateMessageToSendState = useCallback(() => {
     if (!inputRef.current) {
@@ -102,6 +121,8 @@ export const useChat = () => {
           text += `@[${el.dataset.agentName}]`;
         } else if (el.dataset.teamName) {
           text += `/[${el.dataset.teamName}]`;
+        } else if (el.dataset.workflowName) {
+          text += `![${el.dataset.workflowName}]`;
         } else if (el.tagName === 'BR') {
           text += '\n';
         } else {
@@ -140,6 +161,19 @@ export const useChat = () => {
       );
     }
   }, [teamSearchQuery, teams, showTeamSuggestions]);
+
+  useEffect(() => {
+    if (showWorkflowSuggestions) {
+      const lowercasedQuery = workflowSearchQuery.toLowerCase();
+      setFilteredWorkflows(
+        workflows.filter(
+          (workflow) =>
+            workflow.name.toLowerCase().includes(lowercasedQuery) ||
+            workflow.id.toLowerCase().includes(lowercasedQuery)
+        )
+      );
+    }
+  }, [workflowSearchQuery, workflows, showWorkflowSuggestions]);
 
   const handleResetTarget = useCallback(() => {
     const defaultAgent = agents.find((agent) => agent.name === 'Chat Agent') || agents[0] || null;
@@ -359,6 +393,72 @@ export const useChat = () => {
       sel.addRange(range);
 
       setShowTeamSuggestions(false);
+      updateMessageToSendState();
+      inputRef.current?.focus();
+    },
+    [updateMessageToSendState]
+  );
+
+  const createWorkflowChip = (workflow: Workflow): HTMLElement => {
+    const colorClasses = getWorkflowColorClasses(workflow.id);
+    const chip = document.createElement('span');
+    chip.className = `inline-flex items-center gap-2 ${colorClasses.chipBg} ${colorClasses.chipText} rounded-lg px-2 py-1 text-sm font-semibold mx-0.5 align-middle`;
+    chip.contentEditable = 'false';
+    chip.dataset.workflowId = workflow.id;
+    chip.dataset.workflowName = workflow.name;
+
+    const text = document.createElement('span');
+    text.innerText = workflow.name;
+    chip.appendChild(text);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = `${colorClasses.chipRemove} hover:text-white focus:outline-none`;
+    removeBtn.innerHTML = '&times;';
+    removeBtn.type = 'button';
+    removeBtn.onclick = () => {
+      chip.remove();
+      inputRef.current?.focus();
+      inputRef.current?.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    };
+    chip.appendChild(removeBtn);
+
+    return chip;
+  };
+
+  const handleWorkflowSelect = useCallback(
+    (workflow: Workflow) => {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount || !inputRef.current?.contains(sel.anchorNode)) return;
+
+      const range = sel.getRangeAt(0);
+      const node = range.startContainer;
+      const offset = range.startOffset;
+
+      if (node.nodeType !== Node.TEXT_NODE) return;
+
+      const textBefore = node.textContent?.substring(0, offset) || '';
+      const bangMatch = textBefore.match(/![\w\s]*$/);
+      if (!bangMatch) return;
+
+      const startIndex = bangMatch.index!;
+
+      const mentionRange = document.createRange();
+      mentionRange.setStart(node, startIndex);
+      mentionRange.setEnd(node, offset);
+      mentionRange.deleteContents();
+
+      const chip = createWorkflowChip(workflow);
+      mentionRange.insertNode(chip);
+
+      const spaceNode = document.createTextNode('\u00A0');
+      chip.parentNode!.insertBefore(spaceNode, chip.nextSibling);
+
+      range.setStartAfter(spaceNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+
+      setShowWorkflowSuggestions(false);
       updateMessageToSendState();
       inputRef.current?.focus();
     },
@@ -669,6 +769,126 @@ export const useChat = () => {
     }
   }, [sessionId, agents]);
 
+  const runWorkflow = useCallback(async (workflow: Workflow, userMessage: Message, botMessageId: string) => {
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    try {
+        const formData = new URLSearchParams();
+        formData.append('message', userMessage.text);
+        formData.append('stream', 'true');
+        if (sessionId) {
+            formData.append('session_id', sessionId);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/workflows/${workflow.id}/runs`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            signal,
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error: ${response.status} ${errorText}`);
+        }
+        if (!response.body) throw new Error('Response has no body');
+
+        const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += value;
+            const eventChunks = buffer.split('\n\n');
+            
+            for (let i = 0; i < eventChunks.length - 1; i++) {
+                const chunk = eventChunks[i];
+                let eventType = '';
+                let dataStr = '';
+
+                const lines = chunk.split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('event: ')) {
+                        eventType = line.substring(7).trim();
+                    } else if (line.startsWith('data: ')) {
+                        dataStr = line.substring(6).trim();
+                    }
+                }
+                
+                if (dataStr) {
+                    try {
+                        const data = JSON.parse(dataStr);
+                        setMessages(prev => prev.map(msg => {
+                            if (msg.id !== botMessageId) return msg;
+
+                            let workflowRun = msg.workflowRun ? { ...msg.workflowRun, steps: [...msg.workflowRun.steps] } : {
+                                workflow,
+                                status: 'running',
+                                steps: [],
+                                finalContent: '',
+                            };
+
+                            switch (eventType) {
+                                case 'RunStarted':
+                                    setCurrentRunId(data.run_id);
+                                    workflowRun.status = 'running';
+                                    break;
+                                case 'StepStarted':
+                                case 'StepExecutorRunStarted':
+                                    workflowRun.steps.push({ name: data.step_name || data.name || `Step ${workflowRun.steps.length + 1}`, status: 'running', content: '' });
+                                    break;
+                                case 'RunContent':
+                                    if (data.step_name) {
+                                        const step = workflowRun.steps.find(s => s.name === data.step_name && s.status === 'running');
+                                        if (step) {
+                                            step.content += data.content;
+                                        }
+                                    } else {
+                                        workflowRun.finalContent += data.content;
+                                    }
+                                    break;
+                                case 'StepCompleted':
+                                case 'StepExecutorRunCompleted':
+                                    const stepToComplete = workflowRun.steps.find(s => (s.name === data.step_name || s.name === data.name) && s.status === 'running');
+                                    if (stepToComplete) {
+                                        stepToComplete.status = 'completed';
+                                    }
+                                    break;
+                                case 'WorkflowRunCompleted':
+                                case 'RunCompleted':
+                                    workflowRun.status = 'completed';
+                                    break;
+                                default:
+                                    // console.log("Unhandled workflow event:", eventType, data);
+                            }
+                            return { ...msg, workflowRun };
+                        }));
+
+                    } catch (e) {
+                        console.error('Failed to parse workflow SSE data chunk:', dataStr, e);
+                    }
+                }
+            }
+            buffer = eventChunks[eventChunks.length - 1];
+        }
+    } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+            console.error(`Error running workflow ${workflow.name}:`, error);
+            setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, text: `Error: Failed to get response from workflow ${workflow.name}.`, isStreaming: false } : msg));
+        }
+    } finally {
+        if (!signal.aborted) {
+            setMessages(prev => prev.map(msg => msg.id === botMessageId ? { ...msg, isStreaming: false, workflowRun: msg.workflowRun ? { ...msg.workflowRun, status: 'completed' } : undefined } : msg));
+            setCurrentRunId(null);
+        }
+    }
+  }, [sessionId]);
+
   const handleSend = useCallback(async () => {
     if ((messageToSend.trim() === '' && attachments.length === 0) || isGenerating) return;
 
@@ -677,6 +897,9 @@ export const useChat = () => {
 
     let teamsToSendTo: Team[] = [];
     const teamNameMatches = [...messageToSend.matchAll(/\/\[([^\]]+)\]/g)];
+
+    let workflowsToSendTo: Workflow[] = [];
+    const workflowNameMatches = [...messageToSend.matchAll(/!\[([^\]]+)\]/g)];
 
     if (agentNameMatches.length > 0) {
       for (const match of agentNameMatches) {
@@ -696,12 +919,23 @@ export const useChat = () => {
       }
     }
 
-    if (agentsToSendTo.length === 0 && teamsToSendTo.length === 0) {
+    if (workflowNameMatches.length > 0) {
+      for (const match of workflowNameMatches) {
+        const taggedWorkflow = workflows.find((workflow) => workflow.name === match[1]);
+        if (taggedWorkflow && !workflowsToSendTo.some((w) => w.id === taggedWorkflow.id)) {
+          workflowsToSendTo.push(taggedWorkflow);
+        }
+      }
+    }
+
+    if (agentsToSendTo.length === 0 && teamsToSendTo.length === 0 && workflowsToSendTo.length === 0) {
         if (activeTarget) {
             if(activeTarget.type === 'agent') {
                 agentsToSendTo.push(activeTarget.data as Agent);
-            } else {
+            } else if (activeTarget.type === 'team') {
                 teamsToSendTo.push(activeTarget.data as Team);
+            } else {
+                workflowsToSendTo.push(activeTarget.data as Workflow);
             }
         } else {
             console.error("No valid agent to send to.");
@@ -722,7 +956,21 @@ export const useChat = () => {
       activeVersionIndex: 0,
     }));
 
-    setMessages((prev) => [...prev, userMessage, ...botAgentMessagePlaceholders]);
+    const botWorkflowMessagePlaceholders: Message[] = workflowsToSendTo.map((workflow) => ({
+      id: crypto.randomUUID(),
+      text: '',
+      sender: 'bot',
+      isStreaming: true,
+      workflowRun: {
+        workflow,
+        status: 'running',
+        steps: [],
+        finalContent: '',
+      },
+      userMessageId: userMessage.id,
+    }));
+
+    setMessages((prev) => [...prev, userMessage, ...botAgentMessagePlaceholders, ...botWorkflowMessagePlaceholders]);
     if (inputRef.current) inputRef.current.innerHTML = '';
     updateMessageToSendState();
     setAttachments([]);
@@ -739,11 +987,13 @@ export const useChat = () => {
     }
 
     // Update activeTarget for next message
-    if (agentsToSendTo.length === 1 && teamsToSendTo.length === 0) {
+    if (agentsToSendTo.length === 1 && teamsToSendTo.length === 0 && workflowsToSendTo.length === 0) {
         setActiveTarget({ type: 'agent', data: agentsToSendTo[0] });
-    } else if (agentsToSendTo.length === 0 && teamsToSendTo.length === 1) {
+    } else if (agentsToSendTo.length === 0 && teamsToSendTo.length === 1 && workflowsToSendTo.length === 0) {
         setActiveTarget({ type: 'team', data: teamsToSendTo[0] });
-    } else if (agentsToSendTo.length > 0 || teamsToSendTo.length > 0) {
+    } else if (agentsToSendTo.length === 0 && teamsToSendTo.length === 0 && workflowsToSendTo.length === 1) {
+        setActiveTarget({ type: 'workflow', data: workflowsToSendTo[0] });
+    } else if (agentsToSendTo.length > 0 || teamsToSendTo.length > 0 || workflowsToSendTo.length > 0) {
         // Multiple recipients, or a mix, reset to default
         const defaultAgent = agents.find((agent) => agent.name === 'Chat Agent') || agents.find((agent) => agent.id === 'main-agent') || agents[0] || null;
         if (defaultAgent) {
@@ -758,7 +1008,11 @@ export const useChat = () => {
     teamsToSendTo.forEach(async (team) => {
       await runTeam(team, userMessage, false);
     });
-  }, [messageToSend, attachments, isGenerating, agents, teams, activeTarget, sessionId, isNewSession, updateMessageToSendState, runAgent, runTeam]);
+
+    workflowsToSendTo.forEach(async (workflow, index) => {
+      await runWorkflow(workflow, userMessage, botWorkflowMessagePlaceholders[index].id);
+    });
+  }, [messageToSend, attachments, isGenerating, agents, teams, workflows, activeTarget, sessionId, isNewSession, updateMessageToSendState, runAgent, runTeam, runWorkflow]);
 
   const handleRegenerate = useCallback(async (messageToRegenerate: Message) => {
     if (isGenerating) return;
@@ -872,5 +1126,9 @@ export const useChat = () => {
     teams, fetchTeams, showTeamSuggestions, setShowTeamSuggestions,
     setTeamSearchQuery, filteredTeams, activeTeamSuggestionIndex,
     setActiveTeamSuggestionIndex, handleTeamSelect,
+    
+    workflows, fetchWorkflows, showWorkflowSuggestions, setShowWorkflowSuggestions,
+    setWorkflowSearchQuery, filteredWorkflows, activeWorkflowSuggestionIndex,
+    setActiveWorkflowSuggestionIndex, handleWorkflowSelect,
   };
 };
