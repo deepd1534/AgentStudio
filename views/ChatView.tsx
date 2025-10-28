@@ -10,6 +10,8 @@ import { useChat } from '../hooks/useChat';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import ChatSidebar from '../components/chat/ChatSidebar';
 import { formatFileSize, getAgentColorClasses, getTeamColorClasses } from '../utils/chatUtils';
+import ToolCallCard from '../components/chat/ToolCallCard';
+import ThinkingIndicator from '../components/chat/ThinkingIndicator';
 
 // --- Main ChatView Component ---
 const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -202,29 +204,44 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-gray-700 border border-white/10"><BotIcon className="w-6 h-6 text-cyan-300" /></div>
                   )}
                   <div className="flex-1 min-w-0">
-                    {msg.team && <p className={`font-bold text-sm ${getTeamColorClasses(msg.team.id).text} pt-1.5 pb-1`}>{msg.team.name}</p>}
-                    {msg.agent && !msg.team && <p className={`font-bold text-sm ${getAgentColorClasses(msg.agent.id).text} pt-1.5 pb-1`}>{msg.agent.name}</p>}
+                    {(msg.agent || msg.team) && (
+                      <div className="pt-1.5 pb-1">
+                        {msg.agent ? (
+                          <p className={`font-bold text-sm ${getAgentColorClasses(msg.agent.id).text}`}>{msg.agent.name}</p>
+                        ) : msg.team ? (
+                          <p className={`font-bold text-sm ${getTeamColorClasses(msg.team.id).text}`}>{msg.team.name} Leader</p>
+                        ) : null}
+                        {msg.isStreaming && <ThinkingIndicator />}
+                      </div>
+                    )}
                     <div className={!msg.agent && !msg.team ? 'pt-2' : ''}>
-                      {msg.attachments && msg.attachments.length > 0 && (
-                        <div className="mb-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {msg.attachments.map(att => 
-                            <div key={att.id} className="bg-gray-800/70 border border-white/10 rounded-lg overflow-hidden relative group">
-                              {att.previewUrl ? 
-                                <img src={att.previewUrl} alt={att.file.name} className="w-full h-full object-cover aspect-square" /> : 
-                                <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center">
-                                    <div className="flex-1 min-w-0 text-center">
-                                      <DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" />
-                                      <p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p>
-                                      <p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p>
+                      {msg.toolCall && msg.team ? (
+                        <ToolCallCard toolCall={msg.toolCall} team={msg.team} />
+                      ) : (
+                        <>
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="mb-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {msg.attachments.map(att => 
+                                <div key={att.id} className="bg-gray-800/70 border border-white/10 rounded-lg overflow-hidden relative group">
+                                  {att.previewUrl ? 
+                                    <img src={att.previewUrl} alt={att.file.name} className="w-full h-full object-cover aspect-square" /> : 
+                                    <div className="p-2 flex items-center gap-2 overflow-hidden aspect-square justify-center">
+                                        <div className="flex-1 min-w-0 text-center">
+                                          <DocumentIcon className="w-6 h-6 text-gray-200 mx-auto" />
+                                          <p className="text-white text-xs font-medium break-all mt-1" title={att.file.name}>{att.file.name}</p>
+                                          <p className="text-gray-300 text-[10px]">{formatFileSize(att.file.size)}</p>
+                                        </div>
                                     </div>
+                                  }
                                 </div>
-                              }
+                              )}
                             </div>
                           )}
-                        </div>
+                          {(msg.text || msg.isStreaming) && <BotMessageContent text={msg.text} />}
+                        </>
                       )}
-                      {(msg.text || msg.isStreaming) && <BotMessageContent text={msg.text} isStreaming={msg.isStreaming} />}
-                      {msg.versions && msg.versions.length > 1 && !msg.isStreaming && (
+                      
+                      {msg.versions && msg.versions.length > 1 && !msg.isStreaming && !msg.toolCall && (
                         <div className="flex items-center gap-1 mt-2">
                           <button
                             onClick={() => handleVersionChange(msg.id, msg.activeVersionIndex! - 1)}
@@ -277,11 +294,13 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               onInput={handleInput}
               onKeyDown={handleKeyDown}
               fileInputRef={fileInputRef}
+              // FIX: The value `onFileChange` is not defined. The correct value is `handleFileChange` from the `useChat` hook.
               onFileChange={handleFileChange}
               characterCount={characterCount}
               isGenerating={isGenerating}
               currentRunId={currentRunId}
               onCancel={handleCancel}
+              // FIX: The value `onSend` is not defined. The correct value is `handleSend` from the `useChat` hook.
               onSend={handleSend}
               messageToSend={messageToSend}
             />

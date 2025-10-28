@@ -15,10 +15,10 @@ const AGENT_COLORS = [
 ];
 
 const TEAM_COLORS = [
-    { text: 'text-emerald-400', chipBg: 'bg-emerald-600/50', chipText: 'text-emerald-200', chipRemove: 'text-emerald-300' },
-    { text: 'text-lime-400', chipBg: 'bg-lime-600/50', chipText: 'text-lime-200', chipRemove: 'text-lime-300' },
-    { text: 'text-teal-400', chipBg: 'bg-teal-600/50', chipText: 'text-teal-200', chipRemove: 'text-teal-300' },
-    { text: 'text-green-400', chipBg: 'bg-green-600/50', chipText: 'text-green-200', chipRemove: 'text-green-300' },
+    { text: 'text-emerald-400', chipBg: 'bg-emerald-600/50', chipText: 'text-emerald-200', chipRemove: 'text-emerald-300', border: 'border-emerald-500/30' },
+    { text: 'text-lime-400', chipBg: 'bg-lime-600/50', chipText: 'text-lime-200', chipRemove: 'text-lime-300', border: 'border-lime-500/30' },
+    { text: 'text-teal-400', chipBg: 'bg-teal-600/50', chipText: 'text-teal-200', chipRemove: 'text-teal-300', border: 'border-teal-500/30' },
+    { text: 'text-green-400', chipBg: 'bg-green-600/50', chipText: 'text-green-200', chipRemove: 'text-green-300', border: 'border-green-500/30' },
 ];
 
 const stringToHash = (str: string): number => {

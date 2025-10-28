@@ -70,6 +70,17 @@ export interface ChatSession {
   updated_at: string;
 }
 
+export interface ToolCall {
+  toolCallId: string;
+  toolName: string;
+  toolArgs: {
+    task?: string;
+    member_id?: string;
+    [key: string]: any;
+  };
+  delegatedToAgentName?: string;
+}
+
 export interface Message {
   id: string;
   text: string;
@@ -78,6 +89,7 @@ export interface Message {
   attachments?: Attachment[];
   agent?: Agent;
   team?: Team;
+  toolCall?: ToolCall;
 
   // For regeneration and response versioning
   userMessageId?: string; // Links a bot message to the user message it's responding to

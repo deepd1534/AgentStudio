@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback, MouseEvent, ChangeEvent } from 'react';
-// FIX: Add Team to imports
 import { Message, Attachment, Agent, Team, ChatSession } from '../types';
-// FIX: Add getTeamColorClasses to imports
 import { getAgentColorClasses, getTeamColorClasses } from '../utils/chatUtils';
 
 const API_BASE_URL = 'http://localhost:7777';
@@ -21,7 +19,6 @@ export const useChat = () => {
   const [filteredAgents, setFilteredAgents] = useState<Agent[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
 
-  // FIX: Add team-related state
   const [teams, setTeams] = useState<Team[]>([]);
   const [showTeamSuggestions, setShowTeamSuggestions] = useState(false);
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
@@ -54,7 +51,6 @@ export const useChat = () => {
     }
   }, []);
 
-  // FIX: Add fetchTeams function
   const fetchTeams = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/teams`);
@@ -81,9 +77,10 @@ export const useChat = () => {
   useEffect(() => {
     setSessionId(crypto.randomUUID());
     fetchAgents();
+    fetchTeams();
     fetchSessions();
     return () => attachmentUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-  }, [fetchAgents, fetchSessions]);
+  }, [fetchAgents, fetchTeams, fetchSessions]);
 
   useEffect(() => {
     if (!isInitialView) {
@@ -100,7 +97,6 @@ export const useChat = () => {
     const nodes = Array.from(inputRef.current.childNodes);
     let text = '';
 
-    // FIX: Changed for...of to forEach with explicit typing for `node` to resolve TS errors.
     nodes.forEach((node: Node) => {
       if (node.nodeType === Node.TEXT_NODE) {
         text += node.textContent;
@@ -108,7 +104,6 @@ export const useChat = () => {
         const el = node as HTMLElement;
         if (el.dataset.agentName) {
           text += `@[${el.dataset.agentName}]`;
-        // FIX: Add handling for team chips
         } else if (el.dataset.teamName) {
           text += `/[${el.dataset.teamName}]`;
         } else if (el.tagName === 'BR') {
@@ -137,7 +132,6 @@ export const useChat = () => {
     }
   }, [agentSearchQuery, agents, showAgentSuggestions]);
 
-  // FIX: Add useEffect for filtering teams
   useEffect(() => {
     if (showTeamSuggestions) {
       const lowercasedQuery = teamSearchQuery.toLowerCase();
@@ -219,7 +213,6 @@ export const useChat = () => {
     }
   }, [sessionId, isNewSession, updateMessageToSendState]);
 
-  // FIX: Changed e: React.MouseEvent to e: MouseEvent after importing MouseEvent from react.
   const handleDeleteSession = useCallback(async (sessionIdToDelete: string, e: MouseEvent) => {
     e.stopPropagation();
     try {
@@ -306,7 +299,6 @@ export const useChat = () => {
     [updateMessageToSendState]
   );
   
-  // FIX: Add createTeamChip and handleTeamSelect
   const createTeamChip = (team: Team): HTMLElement => {
     const colorClasses = getTeamColorClasses(team.id);
     const chip = document.createElement('span');
@@ -472,105 +464,195 @@ export const useChat = () => {
     }
   }, [sessionId]);
 
-  // FIX: Add runTeam function
-  const runTeam = useCallback(async (team: Team, userMessage: Message, botMessageId: string, isRegeneration: boolean) => {
+  const runTeam = useCallback(async (team: Team, userMessage: Message, isRegeneration: boolean, teamMessageIdToUpdate?: string) => {
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
+    const currentAgentMessageIdRef = { current: null as string | null };
+    let mainTeamMessageId: string | null = teamMessageIdToUpdate || null;
 
     try {
-      const formData = new FormData();
-      formData.append('message', userMessage.text);
-      formData.append('stream', 'true');
-      if (sessionId) {
-        formData.append('session_id', sessionId);
-      }
-      userMessage.attachments?.forEach(att => formData.append('files', att.file));
-
-      const response = await fetch(`${API_BASE_URL}/teams/${team.id}/runs`, {
-        method: 'POST',
-        body: formData,
-        signal,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API Error: ${response.status} ${errorText}`);
-      }
-      if (!response.body) throw new Error('Response has no body');
-
-      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += value;
-        const eventChunks = buffer.split('\n\n');
-
-        for (let i = 0; i < eventChunks.length - 1; i++) {
-          const chunk = eventChunks[i];
-          let eventType = '';
-          let dataStr = '';
-
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.startsWith('event: ')) {
-              eventType = line.substring(7).trim();
-            } else if (line.startsWith('data: ')) {
-              dataStr = line.substring(6).trim();
-            }
-          }
-
-          if (dataStr) {
-            try {
-              const data = JSON.parse(dataStr);
-              if (eventType === 'RunStarted' && data.run_id) {
-                setCurrentRunId(data.run_id);
-              } else if (eventType === 'RunContent' && data.content) {
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== botMessageId) return msg;
-
-                    const newVersions = [...(msg.versions || [])];
-                    const activeIdx = msg.activeVersionIndex ?? newVersions.length - 1;
-
-                    if (activeIdx < 0 || activeIdx >= newVersions.length) return msg;
-
-                    newVersions[activeIdx] = {
-                      ...newVersions[activeIdx],
-                      text: (newVersions[activeIdx].text || '') + data.content,
-                    };
-
-                    return { ...msg, text: newVersions[activeIdx].text, versions: newVersions };
-                  })
-                );
-              }
-            } catch (e) {
-              console.error('Failed to parse SSE data chunk:', dataStr);
-            }
-          }
+        const formData = new FormData();
+        formData.append('message', userMessage.text);
+        formData.append('stream', 'true');
+        if (sessionId) {
+            formData.append('session_id', sessionId);
         }
-        buffer = eventChunks[eventChunks.length - 1];
-      }
+        userMessage.attachments?.forEach(att => formData.append('files', att.file));
+
+        const response = await fetch(`${API_BASE_URL}/teams/${team.id}/runs`, {
+            method: 'POST',
+            body: formData,
+            signal,
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error: ${response.status} ${errorText}`);
+        }
+        if (!response.body) throw new Error('Response has no body');
+
+        const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += value;
+            const eventChunks = buffer.split('\n\n');
+
+            for (let i = 0; i < eventChunks.length - 1; i++) {
+                const chunk = eventChunks[i];
+                let eventType = '';
+                let dataStr = '';
+
+                const lines = chunk.split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('event: ')) {
+                        eventType = line.substring(7).trim();
+                    } else if (line.startsWith('data: ')) {
+                        dataStr = line.substring(6).trim();
+                    }
+                }
+
+                if (dataStr) {
+                    try {
+                        const data = JSON.parse(dataStr);
+                        if (eventType === 'RunStarted' && data.run_id && !data.agent_id) {
+                            setCurrentRunId(data.run_id);
+                        } else if (eventType === 'TeamToolCallStarted') {
+                            const toolCallData = data.tool;
+                            const delegatedAgent = agents.find(a => a.id === toolCallData.tool_args.member_id);
+
+                            const toolCallMessage: Message = {
+                                id: crypto.randomUUID(),
+                                sender: 'bot',
+                                team,
+                                userMessageId: userMessage.id,
+                                text: '',
+                                toolCall: {
+                                    toolCallId: toolCallData.tool_call_id,
+                                    toolName: toolCallData.tool_name,
+                                    toolArgs: toolCallData.tool_args,
+                                    delegatedToAgentName: delegatedAgent?.name || toolCallData.tool_args.member_id,
+                                }
+                            };
+                            if (currentAgentMessageIdRef.current) {
+                                setMessages(prev => prev.map(m => m.id === currentAgentMessageIdRef.current ? { ...m, isStreaming: false } : m));
+                                currentAgentMessageIdRef.current = null;
+                            }
+                            setMessages(prev => [...prev, toolCallMessage]);
+                        } else if (eventType === 'RunStarted' && data.agent_id) {
+                            const agentMessageIdToStop = currentAgentMessageIdRef.current;
+                            
+                            const agent: Agent = { id: data.agent_id, name: data.agent_name };
+                            const newAgentMessage: Message = {
+                                id: crypto.randomUUID(),
+                                sender: 'bot',
+                                agent,
+                                team,
+                                userMessageId: userMessage.id,
+                                text: '',
+                                isStreaming: true,
+                                versions: [{ text: '' }],
+                                activeVersionIndex: 0,
+                            };
+                            currentAgentMessageIdRef.current = newAgentMessage.id;
+                        
+                            setMessages(prev => {
+                                const updatedPrev = agentMessageIdToStop
+                                    ? prev.map(m => m.id === agentMessageIdToStop ? { ...m, isStreaming: false } : m)
+                                    : prev;
+                                return [...updatedPrev, newAgentMessage];
+                            });
+                        } else if (eventType === 'RunContent' && data.content) {
+                            if (currentAgentMessageIdRef.current) {
+                                setMessages(prev => prev.map(msg => {
+                                    if (msg.id !== currentAgentMessageIdRef.current) return msg;
+                                    const newVersions = [...(msg.versions || [])];
+                                    const activeIdx = msg.activeVersionIndex ?? newVersions.length - 1;
+                                    if (activeIdx < 0 || activeIdx >= newVersions.length) return msg;
+                                    newVersions[activeIdx] = {
+                                        ...newVersions[activeIdx],
+                                        text: (newVersions[activeIdx].text || '') + data.content,
+                                    };
+                                    return { ...msg, text: newVersions[activeIdx].text, versions: newVersions };
+                                }));
+                            }
+                        } else if (eventType === 'TeamRunContent' && data.content) {
+                            const agentMessageIdToStop = currentAgentMessageIdRef.current;
+                            if (agentMessageIdToStop) {
+                                currentAgentMessageIdRef.current = null;
+                            }
+
+                            if (!mainTeamMessageId) {
+                                // First event for a new message run
+                                const newTeamMessage: Message = {
+                                    id: crypto.randomUUID(),
+                                    sender: 'bot',
+                                    team,
+                                    userMessageId: userMessage.id,
+                                    text: data.content,
+                                    isStreaming: true,
+                                    versions: [{ text: data.content }],
+                                    activeVersionIndex: 0,
+                                };
+                                mainTeamMessageId = newTeamMessage.id;
+                                setMessages(prev => {
+                                    const updatedPrev = agentMessageIdToStop
+                                        ? prev.map(m => m.id === agentMessageIdToStop ? { ...m, isStreaming: false } : m)
+                                        : prev;
+                                    return [...updatedPrev, newTeamMessage];
+                                });
+                            } else {
+                                // Update an existing message (from regeneration or subsequent chunks)
+                                setMessages(prev => prev.map(msg => {
+                                    let updatedMsg = msg;
+                                    if (msg.id === mainTeamMessageId) {
+                                        const newVersions = [...(msg.versions || [])];
+                                        const activeIdx = msg.activeVersionIndex ?? newVersions.length - 1;
+                                        if (activeIdx >= 0 && activeIdx < newVersions.length) {
+                                            newVersions[activeIdx] = {
+                                                ...newVersions[activeIdx],
+                                                text: (newVersions[activeIdx].text || '') + data.content,
+                                            };
+                                            updatedMsg = { ...updatedMsg, text: newVersions[activeIdx].text, versions: newVersions, isStreaming: true };
+                                        }
+                                    }
+                                    if (agentMessageIdToStop && msg.id === agentMessageIdToStop) {
+                                        updatedMsg = { ...updatedMsg, isStreaming: false };
+                                    }
+                                    return updatedMsg;
+                                }));
+                            }
+                        } else if (eventType === 'TeamRunCompleted') {
+                            setMessages(prev => prev.map(msg => 
+                                (msg.userMessageId === userMessage.id && msg.isStreaming) 
+                                    ? { ...msg, isStreaming: false } 
+                                    : msg
+                            ));
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse SSE data chunk:', dataStr);
+                    }
+                }
+            }
+            buffer = eventChunks[eventChunks.length - 1];
+        }
     } catch (error) {
-      if ((error as Error).name !== 'AbortError') {
-        console.error(`Error running team ${team.name}:`, error);
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === botMessageId
-              ? { ...msg, text: `Error: Failed to get response from ${team.name}.`, isStreaming: false }
-              : msg
-          )
-        );
-      }
+        if ((error as Error).name !== 'AbortError') {
+            console.error(`Error running team ${team.name}:`, error);
+            const finalMessageId = mainTeamMessageId;
+            setMessages(prev => prev.map(msg => finalMessageId && msg.id === finalMessageId ? { ...msg, text: `Error: Failed to get response from ${team.name}.`, isStreaming: false } : msg));
+        }
     } finally {
-      if (!signal.aborted) {
-        setMessages((prev) => prev.map((msg) => (msg.id === botMessageId ? { ...msg, isStreaming: false } : msg)));
-        setCurrentRunId(null);
-      }
+        if (!signal.aborted) {
+            const finalMessageId = mainTeamMessageId;
+            setMessages(prev => prev.map(msg => ( (finalMessageId && msg.id === finalMessageId) || msg.id === currentAgentMessageIdRef.current) ? { ...msg, isStreaming: false } : msg));
+            setCurrentRunId(null);
+        }
     }
-  }, [sessionId]);
+  }, [sessionId, agents]);
 
   const handleSend = useCallback(async () => {
     if ((messageToSend.trim() === '' && attachments.length === 0) || isGenerating) return;
@@ -621,20 +703,7 @@ export const useChat = () => {
       activeVersionIndex: 0,
     }));
 
-    const botTeamMessagePlaceholders: Message[] = teamsToSendTo.map((team) => ({
-      id: crypto.randomUUID(),
-      text: '',
-      sender: 'bot',
-      isStreaming: true,
-      team,
-      userMessageId: userMessage.id,
-      versions: [{ text: '', attachments: [] }],
-      activeVersionIndex: 0,
-    }));
-
-    const botMessagePlaceholders = [...botAgentMessagePlaceholders, ...botTeamMessagePlaceholders];
-
-    setMessages((prev) => [...prev, userMessage, ...botMessagePlaceholders]);
+    setMessages((prev) => [...prev, userMessage, ...botAgentMessagePlaceholders]);
     if (inputRef.current) inputRef.current.innerHTML = '';
     updateMessageToSendState();
     setAttachments([]);
@@ -654,8 +723,8 @@ export const useChat = () => {
       await runAgent(agent, userMessage, botAgentMessagePlaceholders[index].id, false);
     });
     
-    teamsToSendTo.forEach(async (team, index) => {
-      await runTeam(team, userMessage, botTeamMessagePlaceholders[index].id, false);
+    teamsToSendTo.forEach(async (team) => {
+      await runTeam(team, userMessage, false);
     });
   }, [messageToSend, attachments, isGenerating, agents, teams, activeAgent, sessionId, isNewSession, updateMessageToSendState, runAgent, runTeam]);
 
@@ -690,7 +759,7 @@ export const useChat = () => {
       if (botMsg.agent) {
         await runAgent(botMsg.agent, messageToRegenerate, botMsg.id, true);
       } else if (botMsg.team) {
-        await runTeam(botMsg.team, messageToRegenerate, botMsg.id, true);
+        await runTeam(botMsg.team, messageToRegenerate, true, botMsg.id);
       }
     });
   }, [isGenerating, messages, runAgent, runTeam]);
@@ -728,10 +797,8 @@ export const useChat = () => {
     updateMessageToSendState();
   }, [updateMessageToSendState]);
 
-  // FIX: Changed e: React.ChangeEvent to e: ChangeEvent after importing ChangeEvent from react.
   const handleFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      // FIX: Added explicit type `File` to the `file` parameter to resolve TS errors.
       const newFiles = Array.from(e.target.files).map((file: File) => {
         const isImage = file.type.startsWith('image/');
         const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
@@ -770,7 +837,6 @@ export const useChat = () => {
     handleSend, handlePromptClick, handleFileChange, handleRemoveAttachment,
     handleRegenerate, handleVersionChange,
 
-    // FIX: export team-related properties
     teams, fetchTeams, showTeamSuggestions, setShowTeamSuggestions,
     setTeamSearchQuery, filteredTeams, activeTeamSuggestionIndex,
     setActiveTeamSuggestionIndex, handleTeamSelect,
