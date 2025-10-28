@@ -90,6 +90,7 @@ export interface Message {
   agent?: Agent;
   team?: Team;
   toolCall?: ToolCall;
+  error?: string;
 
   // For regeneration and response versioning
   userMessageId?: string; // Links a bot message to the user message it's responding to

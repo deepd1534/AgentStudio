@@ -13,7 +13,7 @@ export const useChat = () => {
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
 
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
+  const [activeTarget, setActiveTarget] = useState<{ type: 'agent' | 'team', data: Agent | Team } | null>(null);
   const [showAgentSuggestions, setShowAgentSuggestions] = useState(false);
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
   const [filteredAgents, setFilteredAgents] = useState<Agent[]>([]);
@@ -44,7 +44,9 @@ export const useChat = () => {
       const data: Agent[] = await response.json();
       setAgents(data);
       const defaultAgent = data.find((agent) => agent.name === 'Chat Agent') || data.find((agent) => agent.id === 'main-agent') || data[0] || null;
-      setActiveAgent(defaultAgent);
+      if (defaultAgent) {
+        setActiveTarget({ type: 'agent', data: defaultAgent });
+      }
     } catch (error) {
       console.error('Failed to fetch agents:', error);
       setMessages(prev => [...prev, { id: crypto.randomUUID(), sender: 'bot', text: 'Error: Could not fetch AI agents.'}]);
@@ -81,12 +83,6 @@ export const useChat = () => {
     fetchSessions();
     return () => attachmentUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
   }, [fetchAgents, fetchTeams, fetchSessions]);
-
-  useEffect(() => {
-    if (!isInitialView) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, isInitialView]);
 
   const updateMessageToSendState = useCallback(() => {
     if (!inputRef.current) {
@@ -145,9 +141,11 @@ export const useChat = () => {
     }
   }, [teamSearchQuery, teams, showTeamSuggestions]);
 
-  const handleDeselectAgent = useCallback(() => {
+  const handleResetTarget = useCallback(() => {
     const defaultAgent = agents.find((agent) => agent.name === 'Chat Agent') || agents[0] || null;
-    setActiveAgent(defaultAgent);
+    if (defaultAgent) {
+      setActiveTarget({ type: 'agent', data: defaultAgent });
+    }
   }, [agents]);
 
   const handleNewSession = useCallback(() => {
@@ -164,7 +162,9 @@ export const useChat = () => {
     updateMessageToSendState();
 
     const defaultAgent = agents.find((agent) => agent.name === 'Chat Agent') || agents.find((agent) => agent.id === 'main-agent') || agents[0] || null;
-    setActiveAgent(defaultAgent);
+    if (defaultAgent) {
+        setActiveTarget({ type: 'agent', data: defaultAgent });
+    }
 
     setCurrentRunId(null);
     if (abortControllerRef.current) {
@@ -467,8 +467,9 @@ export const useChat = () => {
   const runTeam = useCallback(async (team: Team, userMessage: Message, isRegeneration: boolean, teamMessageIdToUpdate?: string) => {
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
+    
+    const mainTeamMessageIdRef = { current: teamMessageIdToUpdate || null };
     const currentAgentMessageIdRef = { current: null as string | null };
-    let mainTeamMessageId: string | null = teamMessageIdToUpdate || null;
 
     try {
         const formData = new FormData();
@@ -518,7 +519,22 @@ export const useChat = () => {
                 if (dataStr) {
                     try {
                         const data = JSON.parse(dataStr);
-                        if (eventType === 'RunStarted' && data.run_id && !data.agent_id) {
+                        if (eventType === 'TeamRunError') {
+                            const errorMessage: Message = {
+                                id: crypto.randomUUID(),
+                                sender: 'bot',
+                                team,
+                                userMessageId: userMessage.id,
+                                text: '',
+                                error: data.error || 'An unknown error occurred.',
+                            };
+                            setMessages(prev => [
+                                ...prev.map(m => (m.userMessageId === userMessage.id && m.isStreaming) ? {...m, isStreaming: false} : m),
+                                errorMessage
+                            ]);
+                            currentAgentMessageIdRef.current = null;
+                            mainTeamMessageIdRef.current = null;
+                        } else if (eventType === 'RunStarted' && data.run_id && !data.agent_id) {
                             setCurrentRunId(data.run_id);
                         } else if (eventType === 'TeamToolCallStarted') {
                             const toolCallData = data.tool;
@@ -543,6 +559,7 @@ export const useChat = () => {
                             }
                             setMessages(prev => [...prev, toolCallMessage]);
                         } else if (eventType === 'RunStarted' && data.agent_id) {
+                            mainTeamMessageIdRef.current = null; // Reset team message, forcing a new one if the team speaks again
                             const agentMessageIdToStop = currentAgentMessageIdRef.current;
                             
                             const agent: Agent = { id: data.agent_id, name: data.agent_name };
@@ -585,8 +602,7 @@ export const useChat = () => {
                                 currentAgentMessageIdRef.current = null;
                             }
 
-                            if (!mainTeamMessageId) {
-                                // First event for a new message run
+                            if (!mainTeamMessageIdRef.current) {
                                 const newTeamMessage: Message = {
                                     id: crypto.randomUUID(),
                                     sender: 'bot',
@@ -597,7 +613,7 @@ export const useChat = () => {
                                     versions: [{ text: data.content }],
                                     activeVersionIndex: 0,
                                 };
-                                mainTeamMessageId = newTeamMessage.id;
+                                mainTeamMessageIdRef.current = newTeamMessage.id;
                                 setMessages(prev => {
                                     const updatedPrev = agentMessageIdToStop
                                         ? prev.map(m => m.id === agentMessageIdToStop ? { ...m, isStreaming: false } : m)
@@ -605,10 +621,9 @@ export const useChat = () => {
                                     return [...updatedPrev, newTeamMessage];
                                 });
                             } else {
-                                // Update an existing message (from regeneration or subsequent chunks)
                                 setMessages(prev => prev.map(msg => {
                                     let updatedMsg = msg;
-                                    if (msg.id === mainTeamMessageId) {
+                                    if (msg.id === mainTeamMessageIdRef.current) {
                                         const newVersions = [...(msg.versions || [])];
                                         const activeIdx = msg.activeVersionIndex ?? newVersions.length - 1;
                                         if (activeIdx >= 0 && activeIdx < newVersions.length) {
@@ -642,12 +657,12 @@ export const useChat = () => {
     } catch (error) {
         if ((error as Error).name !== 'AbortError') {
             console.error(`Error running team ${team.name}:`, error);
-            const finalMessageId = mainTeamMessageId;
+            const finalMessageId = mainTeamMessageIdRef.current;
             setMessages(prev => prev.map(msg => finalMessageId && msg.id === finalMessageId ? { ...msg, text: `Error: Failed to get response from ${team.name}.`, isStreaming: false } : msg));
         }
     } finally {
         if (!signal.aborted) {
-            const finalMessageId = mainTeamMessageId;
+            const finalMessageId = mainTeamMessageIdRef.current;
             setMessages(prev => prev.map(msg => ( (finalMessageId && msg.id === finalMessageId) || msg.id === currentAgentMessageIdRef.current) ? { ...msg, isStreaming: false } : msg));
             setCurrentRunId(null);
         }
@@ -682,8 +697,12 @@ export const useChat = () => {
     }
 
     if (agentsToSendTo.length === 0 && teamsToSendTo.length === 0) {
-        if (activeAgent) {
-            agentsToSendTo.push(activeAgent);
+        if (activeTarget) {
+            if(activeTarget.type === 'agent') {
+                agentsToSendTo.push(activeTarget.data as Agent);
+            } else {
+                teamsToSendTo.push(activeTarget.data as Team);
+            }
         } else {
             console.error("No valid agent to send to.");
             setMessages(prev => [...prev, {id: crypto.randomUUID(), sender: 'bot', text: 'Error: Could not determine which agent to use.'}]);
@@ -719,6 +738,19 @@ export const useChat = () => {
       setIsNewSession(false);
     }
 
+    // Update activeTarget for next message
+    if (agentsToSendTo.length === 1 && teamsToSendTo.length === 0) {
+        setActiveTarget({ type: 'agent', data: agentsToSendTo[0] });
+    } else if (agentsToSendTo.length === 0 && teamsToSendTo.length === 1) {
+        setActiveTarget({ type: 'team', data: teamsToSendTo[0] });
+    } else if (agentsToSendTo.length > 0 || teamsToSendTo.length > 0) {
+        // Multiple recipients, or a mix, reset to default
+        const defaultAgent = agents.find((agent) => agent.name === 'Chat Agent') || agents.find((agent) => agent.id === 'main-agent') || agents[0] || null;
+        if (defaultAgent) {
+            setActiveTarget({ type: 'agent', data: defaultAgent });
+        }
+    }
+
     agentsToSendTo.forEach(async (agent, index) => {
       await runAgent(agent, userMessage, botAgentMessagePlaceholders[index].id, false);
     });
@@ -726,7 +758,7 @@ export const useChat = () => {
     teamsToSendTo.forEach(async (team) => {
       await runTeam(team, userMessage, false);
     });
-  }, [messageToSend, attachments, isGenerating, agents, teams, activeAgent, sessionId, isNewSession, updateMessageToSendState, runAgent, runTeam]);
+  }, [messageToSend, attachments, isGenerating, agents, teams, activeTarget, sessionId, isNewSession, updateMessageToSendState, runAgent, runTeam]);
 
   const handleRegenerate = useCallback(async (messageToRegenerate: Message) => {
     if (isGenerating) return;
@@ -821,16 +853,16 @@ export const useChat = () => {
 
   return {
     sessionId, messages, messageToSend, attachments, characterCount,
-    currentRunId, agents, activeAgent, showAgentSuggestions, agentSearchQuery,
+    currentRunId, agents, activeTarget, showAgentSuggestions, agentSearchQuery,
     filteredAgents, activeSuggestionIndex, isInitialView, isGenerating,
     sessions, isNewSession,
     
     messagesEndRef, fileInputRef, inputRef,
 
     setMessages, setMessageToSend, setAttachments, setCharacterCount,
-    setCurrentRunId, setAgents, setActiveAgent, setShowAgentSuggestions,
+    setCurrentRunId, setAgents, setActiveTarget, setShowAgentSuggestions,
     setAgentSearchQuery, setFilteredAgents, setActiveSuggestionIndex,
-    fetchAgents, updateMessageToSendState, handleDeselectAgent,
+    fetchAgents, updateMessageToSendState, handleResetTarget,
     handleNewSession, handleCancel, createAgentChip, handleAgentSelect,
     handleSelectSession, handleDeleteSession,
 

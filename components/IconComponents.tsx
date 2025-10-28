@@ -162,6 +162,12 @@ export const XMarkIcon: React.FC<IconProps> = (props) => (
     </svg>
 );
 
+export const XCircleIcon: React.FC<IconProps> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
 export const SaveIcon: React.FC<IconProps> = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 3.75H6.375c-1.036 0-1.875.84-1.875 1.875v13.5c0 1.036.84 1.875 1.875 1.875h11.25c1.036 0 1.875-.84 1.875-1.875V9.75M9 3.75V9.375m0-5.625A2.625 2.625 0 0111.625 1.5h.75A2.625 2.625 0 0115 3.75v5.625m0 0V3.75m0 5.625A2.625 2.625 0 0112.375 12h-.75A2.625 2.625 0 019 9.375" />

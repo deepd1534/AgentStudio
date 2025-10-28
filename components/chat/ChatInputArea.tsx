@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Agent, Attachment, Team } from '../../types';
 import { XMarkIcon, PlusCircleIcon, StopIcon, PaperAirplaneIcon, DocumentIcon, PaperClipIcon, ArrowPathIcon } from '../IconComponents';
-import { formatFileSize, getAgentColorClasses } from '../../utils/chatUtils';
+import { formatFileSize, getAgentColorClasses, getTeamColorClasses } from '../../utils/chatUtils';
 
 interface ChatInputAreaProps {
   isInitialView: boolean;
-  activeAgent: Agent | null;
-  onDeselectAgent: () => void;
+  activeTarget: { type: 'agent' | 'team', data: Agent | Team } | null;
+  onResetTarget: () => void;
   showAgentSuggestions: boolean;
   filteredAgents: Agent[];
   activeAgentSuggestionIndex: number;
@@ -33,7 +33,7 @@ interface ChatInputAreaProps {
 }
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
-  isInitialView, activeAgent, onDeselectAgent, showAgentSuggestions, filteredAgents,
+  isInitialView, activeTarget, onResetTarget, showAgentSuggestions, filteredAgents,
   activeAgentSuggestionIndex, onAgentSelect, onMouseEnterAgentSuggestion, 
   showTeamSuggestions, filteredTeams, activeTeamSuggestionIndex, onTeamSelect, onMouseEnterTeamSuggestion,
   attachments, onRemoveAttachment, inputRef, onInput, onKeyDown, fileInputRef, onFileChange, characterCount,
@@ -63,21 +63,6 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
 
   return (
     <div className={`relative mt-4 transition-all duration-700 ease-in-out`}>
-      {activeAgent && !isInitialView && (
-        <div className="group absolute bottom-full mb-2 left-0 flex items-center gap-2 text-xs text-gray-400 bg-gray-900/80 pl-3 pr-2 py-1.5 rounded-t-lg border-t border-l border-r border-white/10 shadow-lg z-10">
-          <span>Talking to: <span className={`font-bold ${getAgentColorClasses(activeAgent.id).text}`}>{activeAgent.name}</span></span>
-          {activeAgent.id !== 'ChatAgent' && (
-            <button
-              onClick={onDeselectAgent}
-              className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white transition-opacity"
-              aria-label="Deselect agent and default to Chat Agent"
-            >
-              <XMarkIcon className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      )}
-      
       {showMenu && (
         <div
           ref={menuRef}
@@ -174,6 +159,20 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
             <button ref={buttonRef} onClick={() => setShowMenu(!showMenu)} className="rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors" aria-label="More options">
               <PlusCircleIcon className="w-8 h-8" />
             </button>
+            {activeTarget && !isInitialView && (
+              <div className="group flex items-center gap-2 text-xs text-gray-400 bg-black/20 ml-3 pl-3 pr-2 py-1.5 rounded-lg border border-transparent">
+                <span>Send to: <span className={`font-bold ${activeTarget.type === 'agent' ? getAgentColorClasses(activeTarget.data.id).text : getTeamColorClasses(activeTarget.data.id).text}`}>{activeTarget.data.name}</span></span>
+                {activeTarget.data.name !== 'Chat Agent' && (
+                <button
+                    onClick={onResetTarget}
+                    className="text-gray-500 hover:text-white transition-opacity"
+                    aria-label={`Reset to default Chat Agent`}
+                >
+                    <XMarkIcon className="w-3.5 h-3.5" />
+                </button>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500">{characterCount}/1000</span>
