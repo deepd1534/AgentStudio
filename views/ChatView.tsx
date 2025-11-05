@@ -16,6 +16,7 @@ import ThinkingIndicator from '../components/chat/ThinkingIndicator';
 import TeamRunError from '../components/chat/TeamRunError';
 import WorkflowRunCard from '../components/chat/WorkflowRunCard';
 import { Workflow } from '../types';
+import AgentToolCallsCard from '../components/chat/AgentToolCallsCard';
 
 // --- Main ChatView Component ---
 const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -267,7 +268,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             ) : msg.team ? (
                               <p className={`font-bold text-sm ${getTeamColorClasses(msg.team.id).text}`}>{msg.team.name} Leader</p>
                             ) : null}
-                            {msg.isStreaming && !msg.workflowRun && <ThinkingIndicator />}
+                            {msg.isStreaming && !msg.workflowRun && (!msg.agentToolCalls || msg.agentToolCalls.length === 0) && <ThinkingIndicator />}
                           </div>
                         )}
                         <div className={!msg.agent && !msg.team ? 'pt-2' : ''}>
@@ -279,6 +280,9 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                             <WorkflowRunCard workflowRun={msg.workflowRun} />
                           ) : (
                             <>
+                              {msg.agentToolCalls && msg.agent && msg.agentToolCalls.length > 0 && (
+                                <AgentToolCallsCard toolCalls={msg.agentToolCalls} agent={msg.agent} />
+                              )}
                               {msg.attachments && msg.attachments.length > 0 && (
                                 <div className="mb-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
                                   {msg.attachments.map(att => 
@@ -297,7 +301,7 @@ const ChatView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                   )}
                                 </div>
                               )}
-                              {(msg.text || msg.isStreaming) && <BotMessageContent text={msg.text} />}
+                              {(msg.text || (msg.isStreaming && (!msg.agentToolCalls || msg.agentToolCalls.length === 0))) && <BotMessageContent text={msg.text} />}
                             </>
                           )}
                           

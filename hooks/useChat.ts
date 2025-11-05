@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback, MouseEvent, ChangeEvent } from 'react';
-import { Message, Attachment, Agent, Team, ChatSession, Workflow } from '../types';
+import { Message, Attachment, Agent, Team, ChatSession, Workflow, AgentToolCall, WorkflowRun } from '../types';
 import { getAgentColorClasses, getTeamColorClasses, getWorkflowColorClasses } from '../utils/chatUtils';
 
 const API_BASE_URL = 'http://localhost:7777';
@@ -519,6 +519,75 @@ export const useChat = () => {
               const data = JSON.parse(dataStr);
               if (eventType === 'RunStarted' && data.run_id) {
                 setCurrentRunId(data.run_id);
+              } else if (eventType === 'ToolCallStarted') {
+                setMessages(prev => prev.map(msg => {
+                  if (msg.id !== botMessageId) return msg;
+                  const toolData = data.tool;
+                  if (!toolData) {
+                      console.error("ToolCallStarted event missing 'tool' object:", data);
+                      return msg;
+                  }
+                  const newToolCall: AgentToolCall = {
+                    id: toolData.tool_call_id,
+                    name: toolData.tool_name,
+                    args: toolData.tool_args,
+                    status: 'running',
+                  };
+                  const agentToolCalls = [...(msg.agentToolCalls || []), newToolCall];
+                  return { ...msg, agentToolCalls };
+                }));
+              } else if (eventType === 'ToolCallContent') {
+                setMessages(prev => prev.map(msg => {
+                  if (msg.id !== botMessageId) return msg;
+                  const toolCallId = data.tool?.tool_call_id || data.tool_call_id;
+                  if (!toolCallId) {
+                      console.error("ToolCallContent event missing 'tool_call_id':", data);
+                      return msg;
+                  }
+                  const agentToolCalls = msg.agentToolCalls?.map(tc => {
+                    if (tc.id === toolCallId) {
+                      return { ...tc, output: (tc.output || '') + data.content };
+                    }
+                    return tc;
+                  });
+                  return { ...msg, agentToolCalls };
+                }));
+              } else if (eventType === 'ToolCallCompleted') {
+                setMessages(prev => prev.map(msg => {
+                  if (msg.id !== botMessageId) return msg;
+                  const toolCallId = data.tool?.tool_call_id || data.tool_call_id;
+                   if (!toolCallId) {
+                      console.error("ToolCallCompleted event missing 'tool_call_id':", data);
+                      return msg;
+                  }
+                  const agentToolCalls = msg.agentToolCalls?.map(tc => {
+                    if (tc.id === toolCallId) {
+                      const output = (data.tool ? data.tool.result : data.output) || tc.output;
+                      const updatedToolCall: AgentToolCall = { ...tc, status: 'completed', output };
+                      return updatedToolCall;
+                    }
+                    return tc;
+                  });
+                  return { ...msg, agentToolCalls };
+                }));
+              } else if (eventType === 'ToolCallFailed') {
+                setMessages(prev => prev.map(msg => {
+                  if (msg.id !== botMessageId) return msg;
+                   const toolCallId = data.tool?.tool_call_id || data.tool_call_id;
+                   if (!toolCallId) {
+                      console.error("ToolCallFailed event missing 'tool_call_id':", data);
+                      return msg;
+                  }
+                  const agentToolCalls = msg.agentToolCalls?.map(tc => {
+                    if (tc.id === toolCallId) {
+                      const error = data.tool?.tool_call_error || data.error;
+                      const updatedToolCall: AgentToolCall = { ...tc, status: 'failed', output: error };
+                      return updatedToolCall;
+                    }
+                    return tc;
+                  });
+                  return { ...msg, agentToolCalls };
+                }));
               } else if (eventType === 'RunContent' && data.content) {
                 setMessages((prev) =>
                   prev.map((msg) => {
@@ -826,7 +895,8 @@ export const useChat = () => {
                         setMessages(prev => prev.map(msg => {
                             if (msg.id !== botMessageId) return msg;
 
-                            let workflowRun = msg.workflowRun ? { ...msg.workflowRun, steps: [...msg.workflowRun.steps] } : {
+                            // FIX: Explicitly type workflowRun to prevent TypeScript from widening the 'status' property to a generic string.
+                            let workflowRun: WorkflowRun = msg.workflowRun ? { ...msg.workflowRun, steps: [...msg.workflowRun.steps] } : {
                                 workflow,
                                 status: 'running',
                                 steps: [],
@@ -954,6 +1024,7 @@ export const useChat = () => {
       userMessageId: userMessage.id,
       versions: [{ text: '', attachments: [] }],
       activeVersionIndex: 0,
+      agentToolCalls: [],
     }));
 
     const botWorkflowMessagePlaceholders: Message[] = workflowsToSendTo.map((workflow) => ({
@@ -1035,6 +1106,7 @@ export const useChat = () => {
             activeVersionIndex: newVersionIndex,
             text: '',
             attachments: [],
+            agentToolCalls: [],
           };
         }
         return msg;

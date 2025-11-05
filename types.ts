@@ -100,6 +100,14 @@ export interface WorkflowRun {
   finalContent: string;
 }
 
+export interface AgentToolCall {
+  id: string;
+  name: string;
+  args: any;
+  status: 'running' | 'completed' | 'failed';
+  output?: string;
+}
+
 export interface Message {
   id: string;
   text: string;
@@ -111,6 +119,7 @@ export interface Message {
   toolCall?: ToolCall;
   error?: string;
   workflowRun?: WorkflowRun;
+  agentToolCalls?: AgentToolCall[];
 
   // For regeneration and response versioning
   userMessageId?: string; // Links a bot message to the user message it's responding to
